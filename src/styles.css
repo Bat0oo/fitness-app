@@ -1,0 +1,111 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f5f5f3;
+  color: #1a1a1a;
+}
+input { font-family: inherit; }
+
+.center-msg { padding: 40px; text-align: center; color: #888; }
+
+/* ---------- layout ---------- */
+.app { display: flex; gap: 16px; padding: 16px; align-items: flex-start; max-width: 1400px; margin: 0 auto; }
+.sidebar {
+  flex: 0 0 220px; background: #fff; border-radius: 12px; padding: 14px;
+  position: sticky; top: 16px;
+}
+.sidebar-title {
+  font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  color: #888; margin-bottom: 10px;
+}
+.search {
+  width: 100%; padding: 8px 10px; border: 0.5px solid #e0e0e0; border-radius: 8px;
+  margin-bottom: 10px; font-size: 13px;
+}
+.lib-list { display: flex; flex-direction: column; gap: 6px; max-height: 70vh; overflow: auto; }
+.lib-item {
+  font-size: 13px; padding: 8px 10px; background: #fafafa; border: 0.5px solid #e5e5e5;
+  border-radius: 8px; cursor: grab; user-select: none; touch-action: none;
+}
+.lib-item.dragging { background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,.15); cursor: grabbing; }
+
+.main { flex: 1; min-width: 0; }
+.topbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.workout-name {
+  font-size: 18px; font-weight: 600; border: none; background: transparent; flex: 1; padding: 2px 0;
+}
+.topbar-actions { display: flex; gap: 8px; }
+
+.days-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px; align-items: start;
+}
+
+/* ---------- day card ---------- */
+.day-card { background: #fff; border-radius: 12px; overflow: hidden; border: 0.5px solid #eee; }
+.day-head { padding: 14px 14px 12px; }
+.day-label-input {
+  font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  color: rgba(255,255,255,.85); background: transparent; border: none; width: 100%; padding: 0;
+}
+.day-title-input {
+  font-size: 22px; font-weight: 600; color: #fff; background: transparent; border: none;
+  width: 100%; padding: 2px 0 0;
+}
+.day-list { padding: 8px 12px; min-height: 48px; transition: background .15s; }
+.day-list.over { background: #eef4ff; }
+.day-empty { font-size: 12px; color: #bbb; padding: 12px 2px; text-align: center; }
+
+.ex-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 6px;
+  padding: 8px 0; border-bottom: 0.5px solid #f0f0f0;
+}
+.ex-row:last-child { border-bottom: none; }
+.ex-left { min-width: 0; }
+.ex-name {
+  font-size: 13px; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ex-detail { display: flex; gap: 4px; align-items: center; margin-top: 2px; color: #888; font-size: 12px; }
+.mini {
+  width: 30px; text-align: center; font-size: 12px; padding: 1px 3px;
+  border: 0.5px solid #e5e5e5; border-radius: 4px;
+}
+.mini.wide { width: 48px; }
+
+.icon-btn {
+  flex: 0 0 auto; width: 24px; height: 24px; border: none; background: transparent;
+  color: #bbb; cursor: pointer; font-size: 13px; border-radius: 4px;
+}
+.icon-btn:hover { background: #f5f5f5; color: #e24b4a; }
+
+.day-foot { padding: 8px 12px 12px; }
+
+/* ---------- buttons ---------- */
+.btn, .btn-ghost, .btn-primary, .btn-google, .btn-danger-ghost {
+  font-size: 13px; padding: 7px 12px; border-radius: 8px; cursor: pointer; font-family: inherit;
+}
+.btn { background: #fff; border: 0.5px solid #ccc; }
+.btn:hover { background: #f7f7f7; }
+.btn-ghost { background: transparent; border: none; color: #888; }
+.btn-primary { background: #1a1a1a; color: #fff; border: none; width: 100%; }
+.btn-google { background: #fff; border: 0.5px solid #ccc; width: 100%; }
+.btn-danger-ghost { background: transparent; border: 0.5px solid #f0d0d0; color: #e24b4a; width: 100%; }
+
+/* ---------- auth ---------- */
+.auth-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
+.auth-card { background: #fff; border-radius: 16px; padding: 32px; width: 100%; max-width: 360px; }
+.auth-title { font-size: 24px; margin-bottom: 4px; }
+.auth-sub { font-size: 14px; color: #888; margin-bottom: 20px; }
+.auth-form { display: flex; flex-direction: column; gap: 10px; }
+.auth-form input {
+  padding: 10px 12px; border: 0.5px solid #ddd; border-radius: 8px; font-size: 14px;
+}
+.auth-divider { text-align: center; color: #bbb; font-size: 12px; margin: 14px 0; }
+.auth-note { font-size: 14px; color: #1D9E75; }
+.auth-err { font-size: 13px; color: #e24b4a; margin-top: 12px; }
+
+@media (max-width: 640px) {
+  .app { flex-direction: column; }
+  .sidebar { position: static; width: 100%; flex: none; }
+}
