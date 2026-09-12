@@ -146,3 +146,9 @@ input, button { font-family: inherit; }
   .mini.wide { width: 58px; }
   .icon-btn { width: 34px; height: 34px; }
 }
+
+.auth-switch { font-size: 13px; color: #888; margin-top: 14px; text-align: center; }
+.link-btn {
+  background: none; border: none; color: #378ADD; cursor: pointer;
+  font-size: 13px; padding: 0; text-decoration: underline;
+}
