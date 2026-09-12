@@ -5,6 +5,7 @@ import { EXERCISE_LIBRARY, DAY_COLORS } from '../lib/library'
 import * as data from '../lib/data'
 import DayCard from '../components/DayCard'
 import LibraryItem from '../components/LibraryItem'
+import AddExerciseSheet from '../components/AddExerciseSheet'
 
 export default function Planner() {
   const { user, signOut } = useAuth()
@@ -12,10 +13,11 @@ export default function Planner() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [activeName, setActiveName] = useState(null)
+  const [sheetDay, setSheetDay] = useState(null) // mobile: which day is adding
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
   )
 
   useEffect(() => {
@@ -33,7 +35,18 @@ export default function Planner() {
     e => !search || e.name.toLowerCase().includes(search.toLowerCase())
   )
 
-  // ---- handlers ----
+  // shared add logic used by both drag-drop and mobile tap
+  async function addExerciseToDay(dayId, name) {
+    const day = workout.days.find(d => d.id === dayId)
+    if (!day) return
+    const position = day.exercises.length
+    const ex = await data.addExercise(dayId, name, position)
+    setWorkout(w => ({
+      ...w,
+      days: w.days.map(d => d.id === dayId ? { ...d, exercises: [...d.exercises, ex] } : d),
+    }))
+  }
+
   async function handleDragEnd(event) {
     setActiveName(null)
     const { active, over } = event
@@ -41,16 +54,7 @@ export default function Planner() {
     const name = active.data.current?.name
     const dayId = String(over.id).replace('day-', '')
     if (!name || !dayId) return
-
-    const day = workout.days.find(d => d.id === dayId)
-    if (!day) return
-    const position = day.exercises.length
-    const ex = await data.addExercise(dayId, name, position)
-
-    setWorkout(w => ({
-      ...w,
-      days: w.days.map(d => d.id === dayId ? { ...d, exercises: [...d.exercises, ex] } : d),
-    }))
+    await addExerciseToDay(dayId, name)
   }
 
   async function addDay() {
@@ -100,6 +104,7 @@ export default function Planner() {
       onDragEnd={handleDragEnd}
     >
       <div className="app">
+        {/* Sidebar — hidden on mobile via CSS */}
         <aside className="sidebar">
           <div className="sidebar-title">Exercise library</div>
           <input
@@ -135,6 +140,7 @@ export default function Planner() {
                 onRemoveDay={removeDay}
                 onUpdateEx={updateEx}
                 onRemoveEx={removeEx}
+                onAddClick={setSheetDay}
               />
             ))}
           </div>
@@ -144,6 +150,14 @@ export default function Planner() {
       <DragOverlay>
         {activeName ? <div className="lib-item dragging">{activeName}</div> : null}
       </DragOverlay>
+
+      {sheetDay && (
+        <AddExerciseSheet
+          dayTitle={sheetDay.title}
+          onPick={name => addExerciseToDay(sheetDay.id, name)}
+          onClose={() => setSheetDay(null)}
+        />
+      )}
     </DndContext>
   )
 }
