@@ -1,116 +1,105 @@
-# Workout Planner
+# 🏋️ Workout Planner
 
-Drag & drop workout builder. React + Vite frontend, Supabase for database + auth,
-deployed on Cloudflare Pages. No backend to host — Supabase is the backend.
+A drag-and-drop workout builder for the web. Create day cards (Push, Pull, Legs…),
+drop exercises into them, set your reps and weight, and your whole plan is saved to
+your account — ready every time you come back, from any device.
 
-## Architecture
+**Live demo:** [fitness-app-drj.pages.dev](https://fitness-app-drj.pages.dev)
 
-```
-Browser (React)  ──▶  Cloudflare Pages   static files, free
-      │
-      └───────────▶  Supabase           Postgres + Auth + auto REST API, free
-```
-
-You maintain zero servers. Two managed free services.
+![Workout Planner — main screen](docs/screenshot-desktop.png)
 
 ---
 
-## 1. Local setup
+## What it does
 
-Requires Node 18+.
+- **Build your split visually.** Add a card for each training day and give it a name
+  and colour (e.g. *Monday · Push*).
+- **Drag exercises in.** On desktop, drag from the exercise library straight into a
+  day card. On mobile, tap **+ Add exercise** and pick from a list.
+- **Set the details.** Each exercise holds sets × reps × weight, editable inline.
+- **It's saved to your account.** Log in and your plan is stored in the cloud — close
+  the tab, switch to your phone, come back next week: it's all still there.
+- **Private by default.** Every user sees only their own plans.
+
+---
+
+
+| Layer | Technology | Why |
+|---|---|---|
+| UI | **React + Vite** | Fast, familiar, easy to build |
+| Drag & drop | **@dnd-kit** | Works with mouse and touch |
+| Database + Auth | **Supabase** (Postgres) | Managed backend, generous free tier |
+| Security | **Row Level Security** | Each user can only read their own rows |
+| Hosting | **Cloudflare Pages** | Free static hosting, auto-deploy on push |
+
+### Data model
+
+```
+workouts   (a plan — belongs to one user)
+   └── days       (a card: label, title, colour, order)
+          └── exercises   (name, sets, reps, kg, order)
+```
+
+Row Level Security policies ensure a user can only ever touch rows that trace back
+to their own `user_id`.
+
+---
+
+## Running it locally
+
+**Requirements:** Node 18+ and a free [Supabase](https://supabase.com) project.
 
 ```bash
+# 1. Install dependencies
 npm install
-cp .env.example .env      # then fill in your Supabase keys (step 2)
-npm run dev               # http://localhost:5173
+
+# 2. Add your Supabase keys
+cp .env.example .env
+#    then edit .env:
+#    VITE_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+#    VITE_SUPABASE_ANON_KEY=your-publishable-key
+
+# 3. Create the tables
+#    In Supabase → SQL Editor, run the contents of supabase/schema.sql
+
+# 4. Start the dev server
+npm run dev            # http://localhost:5173
 ```
 
----
-
-## 2. Supabase (database + auth)
-
-1. Create a free account at https://supabase.com and make a **New project**.
-   Pick a region close to your users. Save the database password somewhere.
-2. Once it's ready, go to **Project Settings > API** and copy:
-   - `Project URL`  → put in `.env` as `VITE_SUPABASE_URL`
-   - `anon public` key → put in `.env` as `VITE_SUPABASE_ANON_KEY`
-   (The anon key is safe to expose in the browser — Row Level Security protects the data.)
-3. Go to **SQL Editor > New query**, paste the entire contents of
-   `supabase/schema.sql`, and click **Run**. This creates the tables and the
-   security policies so each user only sees their own data.
-4. **Auth setup:**
-   - Email login works out of the box (magic link).
-   - For Google login: **Authentication > Providers > Google**, enable it, and
-     follow their link to create Google OAuth credentials. Optional — you can
-     ship with email-only first.
-   - Under **Authentication > URL Configuration**, add your production URL
-     (your Cloudflare Pages domain) to **Redirect URLs** once you have it.
-
----
-
-## 3. Push to GitHub
+To test on your phone over the same Wi-Fi:
 
 ```bash
-git init
-git add .
-git commit -m "Initial workout planner"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/workout-planner.git
-git push -u origin main
+npm run dev -- --host  # then open the Network URL it prints
 ```
 
-`.env` is gitignored — your keys never go to GitHub. You'll add them in
-Cloudflare instead.
+---
+
+## Project structure
+
+```
+src/
+  lib/
+    supabase.js     Supabase client
+    data.js         all database reads/writes live here (only file that knows the DB)
+    library.js      the exercise list shown in the sidebar
+    useAuth.jsx     auth state (who's logged in)
+  components/
+    DayCard.jsx           a single day card (droppable)
+    ExerciseRow.jsx       one exercise line with sets/reps/kg
+    LibraryItem.jsx       a draggable exercise in the sidebar
+    AddExerciseSheet.jsx  mobile "tap to add" bottom sheet
+  pages/
+    Login.jsx       email + password sign in / sign up
+    Planner.jsx     the main screen, ties everything together
+supabase/
+  schema.sql        tables + Row Level Security policies
+```
+
+Because every database call lives in `src/lib/data.js`, the storage layer could be
+swapped (e.g. to a different provider) without touching the UI.
 
 ---
 
-## 4. Deploy to Cloudflare Pages
+## License
 
-1. Sign in at https://dash.cloudflare.com (free account).
-2. **Workers & Pages > Create > Pages > Connect to Git**, pick your repo.
-3. Build settings:
-   - Framework preset: **Vite**
-   - Build command: `npm run build`
-   - Build output directory: `dist`
-4. **Environment variables** — add the same two from your `.env`:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-5. **Save and Deploy.** You get a `*.pages.dev` URL in ~1 minute.
-6. Copy that URL back into Supabase **Auth > URL Configuration > Redirect URLs**
-   so login redirects work.
-
-Every `git push` to `main` now auto-deploys.
-
----
-
-## 5. Custom domain (needed for AdSense)
-
-- Buy a domain (~€10/yr). AdSense won't approve a `pages.dev` subdomain.
-- In Cloudflare Pages: **Custom domains > Set up a domain**. If you also register
-  the domain through Cloudflare, DNS is automatic.
-- Add the custom domain to Supabase redirect URLs too.
-
----
-
-## 6. AdSense
-
-Apply only after you have:
-- a custom domain,
-- some real text content (a few exercise guides / articles help approval and SEO),
-- a privacy policy page (required).
-
-Then paste the AdSense script into `index.html` and add ad units where you want them.
-
----
-
-## Where to extend
-
-- **Exercise images/animations:** the library lives in `src/lib/library.js`.
-  wger (https://wger.de) has an open exercise database you can pull from. Avoid
-  random GIFs off the web — most are copyrighted.
-- **Reordering days / exercises:** already using dnd-kit; add `@dnd-kit/sortable`
-  to the day lists and persist the new `position` values.
-- **Multiple workouts per user:** the schema already supports it (a user can have
-  many `workouts` rows) — add a workout switcher in the UI.
-- **Grouping cards into a "training":** the `workouts` table is exactly this
-  grouping. Each workout = one training plan holding many day cards.
+MIT — free to use, learn from, and build on.
