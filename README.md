@@ -4,9 +4,9 @@ A drag-and-drop workout builder for the web. Create day cards (Push, Pull, Legs�
 drop exercises into them, set your reps and weight, and your whole plan is saved to
 your account — ready every time you come back, from any device.
 
-**Live demo:** [fitness-app-drj.pages.dev](https://fitness-app-drj.pages.dev)
+**Live:** [fitness-app-drj.pages.dev](https://fitness-app-drj.pages.dev)
 
-![Workout Planner — main screen](docs/screenshot-desktop.png)
+<img width="1782" height="825" alt="image" src="https://github.com/user-attachments/assets/0582dfaa-5c73-401d-b723-9f520e5dd6e6" />
 
 ---
 
