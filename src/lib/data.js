@@ -80,3 +80,13 @@ export async function removeExercise(id) {
   const { error } = await supabase.from('exercises').delete().eq('id', id)
   if (error) throw error
 }
+
+export async function reorderExercises(orderedIds) {
+  // Update each exercise's position to match its index in the array.
+  const updates = orderedIds.map((id, index) =>
+    supabase.from('exercises').update({ position: index }).eq('id', id)
+  )
+  const results = await Promise.all(updates)
+  const failed = results.find(r => r.error)
+  if (failed) throw failed.error
+}

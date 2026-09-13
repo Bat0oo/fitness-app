@@ -164,3 +164,28 @@ input, button { font-family: inherit; }
 .auth-divider { text-align: center; color: #bbb; font-size: 12px; margin: 14px 0; }
 .auth-note { font-size: 14px; color: #1D9E75; margin-top: 12px; }
 .auth-err { font-size: 13px; color: #e24b4a; margin-top: 12px; }
+
+
+.drag-handle {
+  flex: 0 0 auto; width: 22px; height: 30px; border: none; background: transparent;
+  color: #ccc; cursor: grab; font-size: 12px; letter-spacing: -2px; padding: 0;
+  touch-action: none;
+}
+.drag-handle:active { cursor: grabbing; }
+.drag-handle:hover { color: #999; }
+
+.custom-ex { display: flex; gap: 6px; }
+.custom-ex-input {
+  flex: 1; padding: 8px 10px; border: 0.5px solid #e0e0e0; border-radius: 8px;
+  font-size: 13px; background: #fafafa;
+}
+.custom-ex-add {
+  padding: 8px 12px; border: none; border-radius: 8px; background: #1a1a1a; color: #fff;
+  font-size: 13px; cursor: pointer;
+}
+
+.sheet-custom { border-color: #1a1a1a; }
+
+@media (min-width: 641px) {
+  .btn-add-ex { display: none; }
+}
