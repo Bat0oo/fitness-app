@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { arrayMove } from '@dnd-kit/sortable'
 import { useAuth } from '../lib/useAuth'
 import { EXERCISE_LIBRARY, DAY_COLORS } from '../lib/library'
 import * as data from '../lib/data'
@@ -13,7 +14,7 @@ export default function Planner() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [activeName, setActiveName] = useState(null)
-  const [sheetDay, setSheetDay] = useState(null) // mobile: which day is adding
+  const [sheetDay, setSheetDay] = useState(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -35,7 +36,6 @@ export default function Planner() {
     e => !search || e.name.toLowerCase().includes(search.toLowerCase())
   )
 
-  // shared add logic used by both drag-drop and mobile tap
   async function addExerciseToDay(dayId, name) {
     const day = workout.days.find(d => d.id === dayId)
     if (!day) return
@@ -47,14 +47,56 @@ export default function Planner() {
     }))
   }
 
+  // Find which day an exercise id belongs to
+  function findDayOfExercise(exId) {
+    return workout.days.find(d => d.exercises.some(e => e.id === exId))
+  }
+
   async function handleDragEnd(event) {
     setActiveName(null)
     const { active, over } = event
     if (!over) return
-    const name = active.data.current?.name
-    const dayId = String(over.id).replace('day-', '')
-    if (!name || !dayId) return
-    await addExerciseToDay(dayId, name)
+
+    const activeId = String(active.id)
+
+    // Case 1: dragging from the library into a day (id starts with "lib-")
+    if (activeId.startsWith('lib-')) {
+      const name = active.data.current?.name
+      const overId = String(over.id)
+      // dropped on a day container, or on an exercise inside a day
+      let dayId = overId.startsWith('day-') ? overId.replace('day-', '') : null
+      if (!dayId) {
+        const day = findDayOfExercise(overId)
+        dayId = day?.id
+      }
+      if (name && dayId) await addExerciseToDay(dayId, name)
+      return
+    }
+
+    // Case 2: reordering exercises within the same day
+    const fromDay = findDayOfExercise(activeId)
+    const toDay = findDayOfExercise(String(over.id)) ||
+                  (String(over.id).startsWith('day-')
+                    ? workout.days.find(d => d.id === String(over.id).replace('day-', ''))
+                    : null)
+    if (!fromDay || !toDay || fromDay.id !== toDay.id) return // only same-day reorder for now
+
+    const oldIndex = fromDay.exercises.findIndex(e => e.id === activeId)
+    const newIndex = fromDay.exercises.findIndex(e => e.id === String(over.id))
+    if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return
+
+    const newExercises = arrayMove(fromDay.exercises, oldIndex, newIndex)
+    // optimistic UI update
+    setWorkout(w => ({
+      ...w,
+      days: w.days.map(d => d.id === fromDay.id ? { ...d, exercises: newExercises } : d),
+    }))
+    // persist
+    try {
+      await data.reorderExercises(newExercises.map(e => e.id))
+    } catch (err) {
+      console.error('reorder failed', err)
+    }
   }
 
   async function addDay() {
@@ -78,8 +120,7 @@ export default function Planner() {
     setWorkout(w => ({
       ...w,
       days: w.days.map(d => ({
-        ...d,
-        exercises: d.exercises.map(e => e.id === id ? { ...e, ...fields } : e),
+        ...d, exercises: d.exercises.map(e => e.id === id ? { ...e, ...fields } : e),
       })),
     }))
   }
@@ -104,15 +145,10 @@ export default function Planner() {
       onDragEnd={handleDragEnd}
     >
       <div className="app">
-        {/* Sidebar — hidden on mobile via CSS */}
         <aside className="sidebar">
           <div className="sidebar-title">Exercise library</div>
-          <input
-            className="search"
-            placeholder="Search…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+          <input className="search" placeholder="Search…"
+            value={search} onChange={e => setSearch(e.target.value)} />
           <div className="lib-list">
             {filtered.map(e => <LibraryItem key={e.name} name={e.name} />)}
           </div>
@@ -120,11 +156,8 @@ export default function Planner() {
 
         <main className="main">
           <div className="topbar">
-            <input
-              className="workout-name"
-              defaultValue={workout.name}
-              onBlur={e => renameWorkout(e.target.value)}
-            />
+            <input className="workout-name" defaultValue={workout.name}
+              onBlur={e => renameWorkout(e.target.value)} />
             <div className="topbar-actions">
               <button onClick={addDay} className="btn">+ Add day</button>
               <button onClick={signOut} className="btn-ghost">Sign out</button>
@@ -141,6 +174,7 @@ export default function Planner() {
                 onUpdateEx={updateEx}
                 onRemoveEx={removeEx}
                 onAddClick={setSheetDay}
+                onAddCustom={addExerciseToDay}
               />
             ))}
           </div>
