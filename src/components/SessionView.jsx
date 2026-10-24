@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import * as data from '../lib/data'
 import HistorySheet from './HistorySheet'
 import { bestRecord, convert, estimate1RM } from '../lib/pr'
+import { dayGroups, groupSummary, pickLimit } from '../lib/groups'
 
 // "12,5" -> 12.5, "" -> null
 const toWeight = v => {
@@ -49,6 +50,9 @@ export default function SessionView({ session, day, userId, unit, prs = {}, onEx
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [historyFor, setHistoryFor] = useState(null)
+  // alternatives: { [groupId]: { group, keys: [exerciseKey...] } } and which keys are picked
+  const [groups, setGroups] = useState({})
+  const [picked, setPicked] = useState({}) // { [groupId]: [exerciseKey...] }
 
   // initial load: merge plan + already-logged sets + last session's numbers
   useEffect(() => {
@@ -66,6 +70,7 @@ export default function SessionView({ session, day, userId, unit, prs = {}, onEx
       seen.add(key)
       entries.push({ key, name: ex.name, exercise_id: ex.id, planEx: ex })
     }
+    const planGroups = day ? dayGroups(day) : {}
     for (const s of session.sets || []) {
       if (seen.has(s.exercise_key)) continue
       seen.add(s.exercise_key)
@@ -78,15 +83,69 @@ export default function SessionView({ session, day, userId, unit, prs = {}, onEx
       .catch(e => { console.error('load previous sets failed', e); return {} })
       .then(prevByKey => {
         if (!alive) return
-        setExercises(entries.map(e => ({
+        const built = entries.map(e => ({
           key: e.key, name: e.name, exercise_id: e.exercise_id,
+          groupId: planGroups[e.planEx?.group_id] ? e.planEx.group_id : null,
+          lastDone: prevByKey[e.key]?.[0]?.date ?? null,
           sets: buildSets(e.planEx, loggedByKey[e.key] || [], prevByKey[e.key]?.[0]?.sets || []),
-        })))
+        }))
+        const g = {}
+        for (const ex of built) {
+          if (!ex.groupId) continue
+          ;(g[ex.groupId] ||= { group: planGroups[ex.groupId].group, keys: [] }).keys.push(ex.key)
+        }
+        setExercises(built)
+        setGroups(g)
+        setPicked(initialPicks(g, built))
       })
     return () => { alive = false }
     // only on mount: later plan edits shouldn't reset an in-progress workout
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id])
+
+  // Pre-select per group: anything already logged this session, then the
+  // least recently done alternatives (never done counts as oldest).
+  function initialPicks(g, built) {
+    const byKey = Object.fromEntries(built.map(e => [e.key, e]))
+    const out = {}
+    for (const [id, { group, keys }] of Object.entries(g)) {
+      const limit = pickLimit(group, keys.length)
+      const logged = keys.filter(k => byKey[k].sets.some(s => s.saved))
+      const rest = keys
+        .filter(k => !logged.includes(k))
+        .sort((a, b) => {
+          const da = byKey[a].lastDone ? new Date(byKey[a].lastDone).getTime() : 0
+          const db = byKey[b].lastDone ? new Date(byKey[b].lastDone).getTime() : 0
+          return da - db // stable sort keeps plan order on ties
+        })
+      out[id] = [...logged, ...rest].slice(0, Math.max(limit, logged.length))
+    }
+    return out
+  }
+
+  const hasDone = ex => ex.sets.some(s => s.done)
+
+  // Tap a tab: select it; if over the limit, drop the earliest pick that has no ticked sets.
+  function pick(groupId, key) {
+    const { group, keys } = groups[groupId]
+    const limit = pickLimit(group, keys.length)
+    setPicked(p => {
+      const cur = p[groupId] || []
+      if (cur.includes(key)) {
+        // in "choose" mode a second tap un-picks (unless it has ticked sets)
+        const ex = exercises.find(e => e.key === key)
+        if (limit > 1 && cur.length > 1 && !hasDone(ex)) return { ...p, [groupId]: cur.filter(k => k !== key) }
+        return p
+      }
+      let next = [...cur, key]
+      while (next.length > limit) {
+        const drop = next.find(k => k !== key && !hasDone(exercises.find(e => e.key === k)))
+        if (!drop) break // everything else already has ticked sets: keep them all
+        next = next.filter(k => k !== drop)
+      }
+      return { ...p, [groupId]: next }
+    })
+  }
 
   function patchSet(exKey, setNumber, fields) {
     setExercises(list => list.map(ex => ex.key !== exKey ? ex : {
@@ -197,6 +256,66 @@ export default function SessionView({ session, day, userId, unit, prs = {}, onEx
     }
   }
 
+  // Plan order; a group is drawn once, where its first member is.
+  function renderItems() {
+    if (!exercises) return []
+    const drawn = new Set()
+    const items = []
+    for (const ex of exercises) {
+      if (!ex.groupId || !groups[ex.groupId]) items.push({ type: 'ex', ex })
+      else if (!drawn.has(ex.groupId)) {
+        drawn.add(ex.groupId)
+        items.push({ type: 'group', id: ex.groupId, ...groups[ex.groupId] })
+      }
+    }
+    return items
+  }
+
+  function renderExercise(ex) {
+    return (
+      <div key={ex.key} className="log-card">
+        <div className="log-head">
+          <div className="log-name">{ex.name}</div>
+          <button className="log-history-btn" onClick={() => setHistoryFor(ex.name)}>History</button>
+        </div>
+
+        <div className="log-grid log-grid-head">
+          <span>Set</span><span>Previous</span><span>{unit}</span><span>Reps</span><span>✓</span>
+        </div>
+        {ex.sets.map(set => (
+          <div key={set.set_number} className={`log-grid ${set.done ? 'done' : ''}`}>
+            <span className="log-setno">
+              {isPR(ex, set) ? <span className="pr-mark" title="New personal record">PR</span> : set.set_number}
+            </span>
+            <span className="log-prev">
+              {set.prev
+                ? `${str(set.prev.weight) || '–'}${set.prev.unit !== unit ? ' ' + set.prev.unit : ''} × ${str(set.prev.reps) || '–'}`
+                : '—'}
+            </span>
+            <input className="log-input" inputMode="decimal" value={set.weight}
+              aria-label={`Set ${set.set_number} weight in ${unit}`}
+              onChange={e => patchSet(ex.key, set.set_number, { weight: e.target.value })}
+              onBlur={() => onBlurSet(ex, set)} />
+            <input className="log-input" inputMode="numeric" value={set.reps}
+              aria-label={`Set ${set.set_number} reps`}
+              onChange={e => patchSet(ex.key, set.set_number, { reps: e.target.value })}
+              onBlur={() => onBlurSet(ex, set)} />
+            <input type="checkbox" className="log-check" checked={set.done}
+              aria-label={`Set ${set.set_number} done`}
+              onChange={() => toggleDone(ex, set)} />
+          </div>
+        ))}
+
+        <div className="log-foot">
+          <button className="btn-ghost" onClick={() => addSet(ex)}>+ Add set</button>
+          {ex.sets.length > 1 && (
+            <button className="btn-ghost" onClick={() => removeLastSet(ex)}>− Remove set</button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const started = new Date(session.started_at)
 
   return (
@@ -222,48 +341,31 @@ export default function SessionView({ session, day, userId, unit, prs = {}, onEx
         <div className="session-empty">This day has no exercises. Add some in the planner first.</div>
       )}
 
-      {exercises?.map(ex => (
-        <div key={ex.key} className="log-card">
-          <div className="log-head">
-            <div className="log-name">{ex.name}</div>
-            <button className="log-history-btn" onClick={() => setHistoryFor(ex.name)}>History</button>
+      {renderItems().map(item => item.type === 'group' ? (
+        <div key={`g-${item.id}`} className="log-group">
+          <div className="log-group-head">
+            <span className="grp-tag">⇄ {groupSummary(item.group, item.keys.length)}</span>
+            {item.group.label && <span className="grp-name">{item.group.label}</span>}
           </div>
-
-          <div className="log-grid log-grid-head">
-            <span>Set</span><span>Previous</span><span>{unit}</span><span>Reps</span><span>✓</span>
+          <div className="log-tabs" role="tablist">
+            {item.keys.map(k => {
+              const ex = exercises.find(e => e.key === k)
+              const on = (picked[item.id] || []).includes(k)
+              return (
+                <button key={k} role="tab" aria-selected={on}
+                  className={`log-tab ${on ? 'active' : ''}`}
+                  onClick={() => pick(item.id, k)}>
+                  {ex.name}{hasDone(ex) ? ' ✓' : ''}
+                </button>
+              )
+            })}
           </div>
-          {ex.sets.map(set => (
-            <div key={set.set_number} className={`log-grid ${set.done ? 'done' : ''}`}>
-              <span className="log-setno">
-                {isPR(ex, set) ? <span className="pr-mark" title="New personal record">PR</span> : set.set_number}
-              </span>
-              <span className="log-prev">
-                {set.prev
-                  ? `${str(set.prev.weight) || '–'}${set.prev.unit !== unit ? ' ' + set.prev.unit : ''} × ${str(set.prev.reps) || '–'}`
-                  : '—'}
-              </span>
-              <input className="log-input" inputMode="decimal" value={set.weight}
-                aria-label={`Set ${set.set_number} weight in ${unit}`}
-                onChange={e => patchSet(ex.key, set.set_number, { weight: e.target.value })}
-                onBlur={() => onBlurSet(ex, set)} />
-              <input className="log-input" inputMode="numeric" value={set.reps}
-                aria-label={`Set ${set.set_number} reps`}
-                onChange={e => patchSet(ex.key, set.set_number, { reps: e.target.value })}
-                onBlur={() => onBlurSet(ex, set)} />
-              <input type="checkbox" className="log-check" checked={set.done}
-                aria-label={`Set ${set.set_number} done`}
-                onChange={() => toggleDone(ex, set)} />
-            </div>
-          ))}
-
-          <div className="log-foot">
-            <button className="btn-ghost" onClick={() => addSet(ex)}>+ Add set</button>
-            {ex.sets.length > 1 && (
-              <button className="btn-ghost" onClick={() => removeLastSet(ex)}>− Remove set</button>
-            )}
-          </div>
+          {item.keys
+            .map(k => exercises.find(e => e.key === k))
+            .filter(ex => (picked[item.id] || []).includes(ex.key) || hasDone(ex))
+            .map(renderExercise)}
         </div>
-      ))}
+      ) : renderExercise(item.ex))}
 
       {historyFor && (
         <HistorySheet userId={userId} name={historyFor} unit={unit} onClose={() => setHistoryFor(null)} />

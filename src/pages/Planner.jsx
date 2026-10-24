@@ -10,6 +10,7 @@ import LibraryItem from '../components/LibraryItem'
 import AddExerciseSheet from '../components/AddExerciseSheet'
 import SessionView from '../components/SessionView'
 import HistorySheet from '../components/HistorySheet'
+import GroupSheet from '../components/GroupSheet'
 
 export default function Planner() {
   const { user, signOut } = useAuth()
@@ -22,6 +23,7 @@ export default function Planner() {
   const [session, setSession] = useState(null) // in-progress workout, if any
   const [historyFor, setHistoryFor] = useState(null)
   const [prs, setPrs] = useState({}) // { [exerciseKey]: PR rows }
+  const [groupEdit, setGroupEdit] = useState(null) // { dayId, exId }
   const library = useExerciseLibrary()
   const filtered = searchExercises(library.list, search)
   // rendering ~900 draggables at once is sluggish, so load more as you scroll
@@ -174,10 +176,70 @@ export default function Planner() {
   }
 
   async function removeEx(id) {
+    const day = findDayOfExercise(id)
+    const ex = day?.exercises.find(e => e.id === id)
     await data.removeExercise(id)
+    // a group left with a single member isn't a group any more
+    let dropGroup = null
+    if (ex?.group_id && day.exercises.filter(e => e.group_id === ex.group_id).length <= 2) {
+      dropGroup = ex.group_id
+      await data.deleteGroup(dropGroup).catch(e => console.error('delete group failed', e))
+    }
     setWorkout(w => ({
       ...w,
-      days: w.days.map(d => ({ ...d, exercises: d.exercises.filter(e => e.id !== id) })),
+      days: w.days.map(d => ({
+        ...d,
+        groups: (d.groups || []).filter(g => g.id !== dropGroup),
+        exercises: d.exercises
+          .filter(e => e.id !== id)
+          .map(e => (dropGroup && e.group_id === dropGroup ? { ...e, group_id: null } : e)),
+      })),
+    }))
+  }
+
+  // Create / update / dissolve an alternatives group on a day.
+  async function saveGroup(dayId, { groupId, memberIds, label, mode, pick_count }) {
+    const day = workout.days.find(d => d.id === dayId)
+    if (!day) return
+
+    if (memberIds.length < 2) {
+      if (groupId) await data.deleteGroup(groupId) // members are cleared by the FK
+      setWorkout(w => ({
+        ...w,
+        days: w.days.map(d => d.id !== dayId ? d : {
+          ...d,
+          groups: (d.groups || []).filter(g => g.id !== groupId),
+          exercises: d.exercises.map(e => (e.group_id === groupId ? { ...e, group_id: null } : e)),
+        }),
+      }))
+      return
+    }
+
+    const fields = { label, mode, pick_count }
+    let group
+    if (groupId) {
+      await data.updateGroup(groupId, fields)
+      group = { ...day.groups.find(g => g.id === groupId), ...fields }
+    } else {
+      group = await data.createGroup(dayId, fields)
+    }
+
+    const wanted = new Set(memberIds)
+    const before = day.exercises.filter(e => e.group_id === group.id).map(e => e.id)
+    const removed = before.filter(id => !wanted.has(id))
+    const added = memberIds.filter(id => !before.includes(id))
+    await data.setExercisesGroup(removed, null)
+    await data.setExercisesGroup(added, group.id)
+
+    setWorkout(w => ({
+      ...w,
+      days: w.days.map(d => d.id !== dayId ? d : {
+        ...d,
+        groups: [...(d.groups || []).filter(g => g.id !== group.id), group],
+        exercises: d.exercises.map(e =>
+          wanted.has(e.id) ? { ...e, group_id: group.id }
+            : e.group_id === group.id ? { ...e, group_id: null } : e),
+      }),
     }))
   }
 
@@ -262,6 +324,7 @@ export default function Planner() {
                 onAddCustom={addExerciseToDay}
                 onStart={startWorkout}
                 onHistory={setHistoryFor}
+                onGroup={(d, ex) => setGroupEdit({ dayId: d.id, exId: ex.id })}
               />
             ))}
           </div>
@@ -271,6 +334,17 @@ export default function Planner() {
       <DragOverlay>
         {activeName ? <div className="lib-item dragging">{activeName}</div> : null}
       </DragOverlay>
+
+      {groupEdit && (() => {
+        const d = workout.days.find(x => x.id === groupEdit.dayId)
+        const ex = d?.exercises.find(x => x.id === groupEdit.exId)
+        if (!d || !ex) return null
+        return (
+          <GroupSheet day={d} ex={ex}
+            onSave={g => saveGroup(d.id, g)}
+            onClose={() => setGroupEdit(null)} />
+        )
+      })()}
 
       {historyFor && (
         <HistorySheet userId={user.id} name={historyFor} unit={unit} onClose={() => setHistoryFor(null)} />

@@ -167,3 +167,42 @@ select
 from set_logs
 where done and weight > 0 and reps > 0
 group by user_id, exercise_key, unit;
+
+-- ============================================================
+-- ALTERNATIVE GROUPS — "this OR that" exercises
+-- A group is a slot on a day holding 2+ alternative exercises.
+--   mode 'rotate': app suggests the least-recently-done one (pick 1)
+--   mode 'choose': you pick `pick_count` of them for the session
+-- Exercises not in a group are always done. Which alternative was
+-- actually done is already recorded in set_logs.exercise_name.
+-- ============================================================
+create table if not exists exercise_groups (
+  id          uuid primary key default gen_random_uuid(),
+  day_id      uuid not null references days(id) on delete cascade,
+  label       text not null default '',
+  mode        text not null default 'rotate' check (mode in ('rotate', 'choose')),
+  pick_count  int  not null default 1 check (pick_count >= 1),
+  created_at  timestamptz not null default now()
+);
+
+alter table exercises
+  add column if not exists group_id uuid references exercise_groups(id) on delete set null;
+
+create index if not exists idx_exercise_groups_day on exercise_groups(day_id);
+create index if not exists idx_exercises_group on exercises(group_id);
+
+alter table exercise_groups enable row level security;
+
+-- EXERCISE_GROUPS: allowed if the parent day's workout belongs to the user
+create policy "own exercise groups" on exercise_groups
+  for all using (
+    exists (
+      select 1 from days d join workouts w on w.id = d.workout_id
+      where d.id = exercise_groups.day_id and w.user_id = auth.uid()
+    )
+  ) with check (
+    exists (
+      select 1 from days d join workouts w on w.id = d.workout_id
+      where d.id = exercise_groups.day_id and w.user_id = auth.uid()
+    )
+  );
