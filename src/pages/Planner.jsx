@@ -21,6 +21,7 @@ export default function Planner() {
   const [unit, setUnit] = useState('kg')
   const [session, setSession] = useState(null) // in-progress workout, if any
   const [historyFor, setHistoryFor] = useState(null)
+  const [prs, setPrs] = useState({}) // { [exerciseKey]: PR rows }
   const library = useExerciseLibrary()
   const filtered = searchExercises(library.list, search)
   // rendering ~900 draggables at once is sluggish, so load more as you scroll
@@ -45,7 +46,15 @@ export default function Planner() {
     data.loadActiveSession(user.id)
       .then(s => setSession(s))
       .catch(e => console.error('load active session failed', e))
+    refreshPRs()
   }, [user])
+
+  function refreshPRs() {
+    if (!user) return
+    data.loadPRs(user.id)
+      .then(setPrs)
+      .catch(e => console.error('load PRs failed', e))
+  }
 
   if (loading) return <div className="center-msg">Loading…</div>
   if (!workout) return <div className="center-msg">Something went wrong.</div>
@@ -58,7 +67,8 @@ export default function Planner() {
           day={workout.days.find(d => d.id === session.day_id)}
           userId={user.id}
           unit={unit}
-          onExit={() => setSession(null)}
+          prs={prs}
+          onExit={() => { setSession(null); refreshPRs() }}
         />
       </div>
     )
@@ -243,6 +253,7 @@ export default function Planner() {
                 key={day.id}
                 day={day}
                 unit={unit}
+                prs={prs}
                 onUpdateDay={updateDay}
                 onRemoveDay={removeDay}
                 onUpdateEx={updateEx}
@@ -262,7 +273,7 @@ export default function Planner() {
       </DragOverlay>
 
       {historyFor && (
-        <HistorySheet userId={user.id} name={historyFor} onClose={() => setHistoryFor(null)} />
+        <HistorySheet userId={user.id} name={historyFor} unit={unit} onClose={() => setHistoryFor(null)} />
       )}
 
       {sheetDay && (

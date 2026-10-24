@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { formatWeight } from '../lib/pr'
 
 // A single exercise line that can be dragged up/down to reorder within its day.
-export default function SortableExerciseRow({ ex, unit = 'kg', onChange, onRemove, onHistory }) {
+export default function SortableExerciseRow({ ex, unit = 'kg', record, onChange, onRemove, onHistory }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: ex.id })
 
@@ -25,7 +26,14 @@ export default function SortableExerciseRow({ ex, unit = 'kg', onChange, onRemov
       </button>
 
       <div className="ex-left">
-        <div className="ex-name">{ex.name}</div>
+        <div className="ex-name">
+          {ex.name}
+          {record && (
+            <span className="pr-badge" title={record.e1rm ? `Est. 1RM ${formatWeight(record.e1rm)} ${record.unit}` : undefined}>
+              PR {formatWeight(record.weight)} {record.unit}
+            </span>
+          )}
+        </div>
         <div className="ex-detail">
           <input className="mini" value={sets}
             onChange={e => setSets(e.target.value)}

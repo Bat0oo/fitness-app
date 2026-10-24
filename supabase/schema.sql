@@ -144,3 +144,26 @@ create policy "own set logs" on set_logs
       select 1 from sessions s where s.id = set_logs.session_id and s.user_id = auth.uid()
     )
   );
+
+-- ============================================================
+-- PERSONAL RECORDS
+-- Computed on the fly from set_logs — nothing stored, always up to date.
+-- One row per user + exercise + unit (units are never mixed in SQL;
+-- the app converts for display). security_invoker makes the view obey
+-- set_logs' RLS, so users only ever see their own PRs.
+-- est. 1RM uses Epley: weight × (1 + reps/30), only for 1–12 reps.
+-- ============================================================
+create or replace view exercise_prs with (security_invoker = true) as
+select
+  user_id,
+  exercise_key,
+  unit,
+  max(weight)                                                   as best_weight,
+  (array_agg(reps order by weight desc, reps desc))[1]          as reps_at_best,
+  max(case when reps = 1 then weight
+           else round(weight * (1 + reps / 30.0), 1) end)
+    filter (where reps between 1 and 12)                         as best_e1rm,
+  max(logged_at)                                                as last_logged_at
+from set_logs
+where done and weight > 0 and reps > 0
+group by user_id, exercise_key, unit;
