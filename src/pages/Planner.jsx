@@ -15,6 +15,7 @@ export default function Planner() {
   const [search, setSearch] = useState('')
   const [activeName, setActiveName] = useState(null)
   const [sheetDay, setSheetDay] = useState(null)
+  const [unit, setUnit] = useState('kg')
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -27,6 +28,10 @@ export default function Planner() {
       .then(w => setWorkout(w))
       .catch(e => console.error(e))
       .finally(() => setLoading(false))
+    // unit preference loads separately so a failure here never blocks the planner
+    data.loadUnit(user.id)
+      .then(u => setUnit(u))
+      .catch(e => console.error('load unit failed', e))
   }, [user])
 
   if (loading) return <div className="center-msg">Loading…</div>
@@ -133,6 +138,18 @@ export default function Planner() {
     }))
   }
 
+  async function changeUnit(next) {
+    if (next === unit) return
+    const prev = unit
+    setUnit(next) // optimistic
+    try {
+      await data.saveUnit(user.id, next)
+    } catch (err) {
+      console.error('save unit failed', err)
+      setUnit(prev)
+    }
+  }
+
   async function renameWorkout(name) {
     await data.renameWorkout(workout.id, name)
     setWorkout(w => ({ ...w, name }))
@@ -159,6 +176,14 @@ export default function Planner() {
             <input className="workout-name" defaultValue={workout.name}
               onBlur={e => renameWorkout(e.target.value)} />
             <div className="topbar-actions">
+              <div className="unit-toggle" role="group" aria-label="Weight unit">
+                {['kg', 'lb'].map(u => (
+                  <button key={u} type="button"
+                    className={unit === u ? 'active' : ''}
+                    aria-pressed={unit === u}
+                    onClick={() => changeUnit(u)}>{u}</button>
+                ))}
+              </div>
               <button onClick={addDay} className="btn">+ Add day</button>
               <button onClick={signOut} className="btn-ghost">Sign out</button>
             </div>
@@ -169,6 +194,7 @@ export default function Planner() {
               <DayCard
                 key={day.id}
                 day={day}
+                unit={unit}
                 onUpdateDay={updateDay}
                 onRemoveDay={removeDay}
                 onUpdateEx={updateEx}

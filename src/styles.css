@@ -38,6 +38,16 @@ input, button { font-family: inherit; }
 }
 .topbar-actions { display: flex; gap: 8px; }
 
+/* kg / lb segmented toggle */
+.unit-toggle {
+  display: inline-flex; border: 0.5px solid #ccc; border-radius: 8px; overflow: hidden; background: #fff;
+}
+.unit-toggle button {
+  border: none; background: transparent; padding: 6px 10px; font-size: 13px; cursor: pointer; color: #888;
+}
+.unit-toggle button.active { background: #1a1a1a; color: #fff; }
+.unit-label { color: #888; font-size: 12px; }
+
 .days-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 12px; align-items: start;

@@ -3,7 +3,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
 // A single exercise line that can be dragged up/down to reorder within its day.
-export default function SortableExerciseRow({ ex, onChange, onRemove }) {
+export default function SortableExerciseRow({ ex, unit = 'kg', onChange, onRemove }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: ex.id })
 
@@ -35,9 +35,11 @@ export default function SortableExerciseRow({ ex, onChange, onRemove }) {
             onChange={e => setReps(e.target.value)}
             onBlur={() => onChange({ reps })} />
           <span>·</span>
-          <input className="mini" placeholder="kg" value={kg}
+          <input className="mini" placeholder="—" inputMode="decimal" value={kg}
+            aria-label={`Weight in ${unit}`}
             onChange={e => setKg(e.target.value)}
             onBlur={() => onChange({ kg })} />
+          <span className="unit-label">{unit}</span>
         </div>
       </div>
 

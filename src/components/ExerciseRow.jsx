@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function ExerciseRow({ ex, onChange, onRemove }) {
+export default function ExerciseRow({ ex, unit = 'kg', onChange, onRemove }) {
   const [sets, setSets] = useState(ex.sets)
   const [reps, setReps] = useState(ex.reps)
   const [kg, setKg] = useState(ex.kg ?? '')
@@ -30,11 +30,14 @@ export default function ExerciseRow({ ex, onChange, onRemove }) {
           <span>·</span>
           <input
             className="mini"
-            placeholder="kg"
+            placeholder="—"
+            inputMode="decimal"
+            aria-label={`Weight in ${unit}`}
             value={kg}
             onChange={e => setKg(e.target.value)}
             onBlur={() => commit('kg', kg)}
           />
+          <span className="unit-label">{unit}</span>
         </div>
       </div>
       <button className="icon-btn" onClick={onRemove} aria-label="Remove exercise">✕</button>
