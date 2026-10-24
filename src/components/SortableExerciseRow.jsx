@@ -3,7 +3,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
 // A single exercise line that can be dragged up/down to reorder within its day.
-export default function SortableExerciseRow({ ex, unit = 'kg', onChange, onRemove }) {
+export default function SortableExerciseRow({ ex, unit = 'kg', onChange, onRemove, onHistory }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: ex.id })
 
@@ -43,6 +43,10 @@ export default function SortableExerciseRow({ ex, unit = 'kg', onChange, onRemov
         </div>
       </div>
 
+      {onHistory && (
+        <button className="icon-btn icon-history" onClick={onHistory}
+          aria-label={`History for ${ex.name}`} title="History">↺</button>
+      )}
       <button className="icon-btn" onClick={onRemove} aria-label="Remove exercise">✕</button>
     </div>
   )

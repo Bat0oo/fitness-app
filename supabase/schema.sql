@@ -85,3 +85,62 @@ alter table profiles enable row level security;
 
 create policy "own profile" on profiles
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+
+-- sessions = one workout you actually did; set_logs = one row per set.
+-- History is grouped by exercise NAME (exercise_key), so it survives
+-- removing/re-adding an exercise in the plan. Deleting plan rows never
+-- deletes logs (day_id / exercise_id are set null).
+
+create table if not exists sessions (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  day_id       uuid references days(id) on delete set null,
+  day_title    text not null default '',          -- snapshot of the day title
+  started_at   timestamptz not null default now(),
+  finished_at  timestamptz                        -- null = still in progress
+);
+
+create table if not exists set_logs (
+  id             uuid primary key default gen_random_uuid(),
+  session_id     uuid not null references sessions(id) on delete cascade,
+  user_id        uuid not null references auth.users(id) on delete cascade,
+  exercise_id    uuid references exercises(id) on delete set null,
+  exercise_name  text not null,
+  exercise_key   text generated always as (lower(trim(exercise_name))) stored,
+  set_number     int  not null check (set_number > 0),
+  weight         numeric(7,2),
+  reps           int check (reps >= 0),
+  unit           text not null default 'kg' check (unit in ('kg', 'lb')),
+  done           boolean not null default false,
+  logged_at      timestamptz not null default now(),
+  unique (session_id, exercise_key, set_number)
+);
+
+create index if not exists idx_sessions_user_started on sessions (user_id, started_at desc);
+create index if not exists idx_set_logs_history on set_logs (user_id, exercise_key, logged_at desc);
+create index if not exists idx_set_logs_session on set_logs (session_id);
+
+alter table sessions enable row level security;
+alter table set_logs enable row level security;
+
+-- SESSIONS: owner-only; a session may only point at one of your own days
+create policy "own sessions" on sessions
+  for all using (auth.uid() = user_id)
+  with check (
+    auth.uid() = user_id and (
+      day_id is null or exists (
+        select 1 from days d join workouts w on w.id = d.workout_id
+        where d.id = sessions.day_id and w.user_id = auth.uid()
+      )
+    )
+  );
+
+-- SET_LOGS: owner-only, and only inside one of your own sessions
+create policy "own set logs" on set_logs
+  for all using (auth.uid() = user_id)
+  with check (
+    auth.uid() = user_id and exists (
+      select 1 from sessions s where s.id = set_logs.session_id and s.user_id = auth.uid()
+    )
+  );
