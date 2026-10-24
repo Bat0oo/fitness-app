@@ -1,14 +1,14 @@
 import { useState } from 'react'
-import { EXERCISE_LIBRARY } from '../lib/library'
+import { searchExercises } from '../lib/library'
+import { useShowMore } from '../lib/useShowMore'
 
-export default function AddExerciseSheet({ dayTitle, onPick, onClose }) {
+export default function AddExerciseSheet({ dayTitle, library, onPick, onClose }) {
   const [search, setSearch] = useState('')
   const q = search.trim()
-  const filtered = EXERCISE_LIBRARY.filter(
-    e => !q || e.name.toLowerCase().includes(q.toLowerCase())
-  )
+  const filtered = searchExercises(library, q)
+  const { shown, hasMore, showMore, sentinelRef } = useShowMore(filtered, 100, q)
   // show a "add your own" option when the typed text isn't an exact library match
-  const exactMatch = EXERCISE_LIBRARY.some(e => e.name.toLowerCase() === q.toLowerCase())
+  const exactMatch = library.some(e => e.name.toLowerCase() === q.toLowerCase())
 
   return (
     <div className="sheet-backdrop" onClick={onClose}>
@@ -31,7 +31,7 @@ export default function AddExerciseSheet({ dayTitle, onPick, onClose }) {
               <span className="sheet-group">custom</span>
             </button>
           )}
-          {filtered.map(e => (
+          {shown.map(e => (
             <button key={e.name} className="sheet-item"
               onClick={() => { onPick(e.name); onClose() }}>
               <span>{e.name}</span>
@@ -39,6 +39,14 @@ export default function AddExerciseSheet({ dayTitle, onPick, onClose }) {
             </button>
           ))}
           {filtered.length === 0 && !q && <div className="sheet-empty">Type to search</div>}
+          {hasMore && (
+            <button ref={sentinelRef} className="lib-more" onClick={showMore}>
+              Showing {shown.length} of {filtered.length} — load more
+            </button>
+          )}
+        </div>
+        <div className="lib-credit">
+          Exercises from <a href="https://wger.de" target="_blank" rel="noreferrer">wger</a> (CC-BY-SA)
         </div>
       </div>
     </div>
