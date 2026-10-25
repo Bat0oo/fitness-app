@@ -320,3 +320,25 @@ input, button { font-family: inherit; }
   border: 0.5px solid #c9c5ee; background: #fff; color: #534AB7;
 }
 .log-tab.active { background: #534AB7; color: #fff; border-color: #534AB7; }
+
+/* ---------- plan switcher ---------- */
+.plan-select {
+  font-size: 13px; padding: 7px 8px; border-radius: 8px; border: 0.5px solid #ccc;
+  background: #fff; max-width: 180px; cursor: pointer;
+}
+.btn-del-plan:hover { color: #e24b4a; }
+.topbar-actions { flex-wrap: wrap; }
+.new-plan { display: flex; gap: 6px; flex: 1 1 100%; order: 10; }
+.new-plan-input {
+  flex: 1; min-width: 0; padding: 8px 10px; border: 0.5px solid #ccc; border-radius: 8px; font-size: 14px;
+}
+
+/* exercise row: name + actions on one line, inputs get the full width below */
+.ex-top { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.ex-top .ex-name { flex: 0 1 auto; min-width: 0; }
+.ex-top .pr-badge { flex: 0 0 auto; margin-left: 2px; }
+.ex-actions { display: flex; flex: 0 0 auto; margin-left: auto; }
+.ex-actions .icon-btn { width: 26px; height: 26px; font-size: 14px; }
+@media (max-width: 640px) {
+  .ex-actions .icon-btn { width: 32px; height: 32px; }
+}

@@ -1,28 +1,43 @@
 import { supabase } from './supabase'
 
-// Load the user's workout with all days + exercises nested.
-// If the user has no workout yet, create a starter one.
-export async function loadOrCreateWorkout(userId) {
-  let { data: workouts, error } = await supabase
+// All of the user's workouts (plans), oldest first. Creates a starter one if none.
+export async function listOrCreateWorkouts(userId) {
+  const { data, error } = await supabase
     .from('workouts')
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: true })
-    .limit(1)
-
   if (error) throw error
+  if (data.length > 0) return data
+  return [await createWorkout(userId, 'My workout')]
+}
 
-  let workout = workouts?.[0]
-  if (!workout) {
-    const { data, error: insErr } = await supabase
-      .from('workouts')
-      .insert({ user_id: userId, name: 'My workout' })
-      .select()
-      .single()
-    if (insErr) throw insErr
-    workout = data
-  }
+export async function createWorkout(userId, name) {
+  const { data, error } = await supabase
+    .from('workouts')
+    .insert({ user_id: userId, name })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
 
+// Deletes the plan with its days, exercises and groups (cascade).
+// Logged sessions/sets are kept — they just lose the link to the day.
+export async function deleteWorkout(id) {
+  const { error } = await supabase.from('workouts').delete().eq('id', id)
+  if (error) throw error
+}
+
+// Which workout a day belongs to (used to resume a session from another plan).
+export async function workoutIdForDay(dayId) {
+  const { data, error } = await supabase.from('days').select('workout_id').eq('id', dayId).maybeSingle()
+  if (error) throw error
+  return data?.workout_id ?? null
+}
+
+// One workout row -> the same workout with all days + exercises + groups nested.
+export async function loadWorkout(workout) {
   const { data: days, error: dErr } = await supabase
     .from('days')
     .select('*, exercises(*)')
@@ -101,13 +116,30 @@ export async function reorderExercises(orderedIds) {
 
 // Returns the user's weight unit ('kg' | 'lb'). Defaults to 'kg' if no profile row yet.
 export async function loadUnit(userId) {
+  return (await loadProfile(userId)).unit
+}
+
+// { unit, active_workout_id } with defaults when there's no profile row yet.
+// select('*') so a missing column (SQL not run yet) doesn't break loading.
+export async function loadProfile(userId) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('unit')
+    .select('*')
     .eq('user_id', userId)
     .maybeSingle()
   if (error) throw error
-  return data?.unit === 'lb' ? 'lb' : 'kg'
+  return {
+    unit: data?.unit === 'lb' ? 'lb' : 'kg',
+    active_workout_id: data?.active_workout_id ?? null,
+  }
+}
+
+// Remember which plan the user last had open (synced across devices).
+export async function saveActiveWorkout(userId, workoutId) {
+  const { error } = await supabase
+    .from('profiles')
+    .upsert({ user_id: userId, active_workout_id: workoutId }, { onConflict: 'user_id' })
+  if (error) throw error
 }
 
 // Saves the weight unit (creates the profile row on first save).

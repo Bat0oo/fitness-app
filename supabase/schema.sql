@@ -206,3 +206,9 @@ create policy "own exercise groups" on exercise_groups
       where d.id = exercise_groups.day_id and w.user_id = auth.uid()
     )
   );
+
+-- ============================================================
+-- MULTIPLE WORKOUTS remember the last-opened plan per user.
+-- ============================================================
+alter table profiles
+  add column if not exists active_workout_id uuid references workouts(id) on delete set null;
