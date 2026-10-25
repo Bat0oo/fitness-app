@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useAuth } from '../lib/useAuth'
-import { DAY_COLORS, useExerciseLibrary, searchExercises } from '../lib/library'
+import { DAY_COLORS, STARTER_TEMPLATE, useExerciseLibrary, searchExercises } from '../lib/library'
+import { dayGroups } from '../lib/groups'
 import { useShowMore } from '../lib/useShowMore'
 import * as data from '../lib/data'
 import DayCard from '../components/DayCard'
@@ -11,6 +12,8 @@ import AddExerciseSheet from '../components/AddExerciseSheet'
 import SessionView from '../components/SessionView'
 import HistorySheet from '../components/HistorySheet'
 import GroupSheet from '../components/GroupSheet'
+import CopySheet from '../components/CopySheet'
+import Welcome from '../components/Welcome'
 
 export default function Planner() {
   const { user, signOut } = useAuth()
@@ -27,6 +30,7 @@ export default function Planner() {
   const [historyFor, setHistoryFor] = useState(null)
   const [prs, setPrs] = useState({}) // { [exerciseKey]: PR rows }
   const [groupEdit, setGroupEdit] = useState(null) // { dayId, exId }
+  const [copyEx, setCopyEx] = useState(null) // { dayId, exId }
   const library = useExerciseLibrary()
   const filtered = searchExercises(library.list, search)
   // rendering ~900 draggables at once is sluggish, so load more as you scroll
@@ -89,7 +93,7 @@ export default function Planner() {
     try {
       const w = await data.loadWorkout(row)
       setWorkout(w)
-      setSheetDay(null); setHistoryFor(null); setGroupEdit(null)
+      setSheetDay(null); setHistoryFor(null); setGroupEdit(null); setCopyEx(null)
       data.saveActiveWorkout(user.id, id).catch(e => console.error('save active plan failed', e))
     } catch (e) {
       console.error(e)
@@ -236,6 +240,56 @@ export default function Planner() {
     const color = DAY_COLORS[workout.days.length % DAY_COLORS.length]
     const day = await data.addDay(workout.id, workout.days.length, color)
     setWorkout(w => ({ ...w, days: [...w.days, day] }))
+  }
+
+  // Copy a day (exercises + alternative groups) to the end of the plan.
+  async function duplicateDay(dayId) {
+    const day = workout.days.find(d => d.id === dayId)
+    if (!day) return
+    const groups = Object.values(dayGroups(day)).map(g => g.group) // only real (2+ member) groups
+    const copy = await data.createDayWithExercises(
+      workout.id,
+      workout.days.length,
+      {
+        label: day.label,
+        title: `${day.title} (copy)`,
+        color: DAY_COLORS[workout.days.length % DAY_COLORS.length],
+      },
+      day.exercises,
+      groups,
+    )
+    setWorkout(w => ({ ...w, days: [...w.days, copy] }))
+  }
+
+  async function copyExerciseTo(exId, fromDayId, toDayId) {
+    const from = workout.days.find(d => d.id === fromDayId)
+    const ex = from?.exercises.find(e => e.id === exId)
+    const to = workout.days.find(d => d.id === toDayId)
+    if (!ex || !to) return
+    const copy = await data.copyExercise(ex, toDayId, to.exercises.length)
+    setWorkout(w => ({
+      ...w,
+      days: w.days.map(d => d.id === toDayId ? { ...d, exercises: [...d.exercises, copy] } : d),
+    }))
+  }
+
+  // Empty-plan welcome: create the starter Push / Pull / Legs days.
+  async function applyTemplate() {
+    try {
+      const created = []
+      for (const [i, t] of STARTER_TEMPLATE.entries()) {
+        created.push(await data.createDayWithExercises(
+          workout.id,
+          workout.days.length + i,
+          { label: t.label, title: t.title, color: DAY_COLORS[(workout.days.length + i) % DAY_COLORS.length] },
+          t.exercises,
+        ))
+      }
+      setWorkout(w => ({ ...w, days: [...w.days, ...created] }))
+    } catch (e) {
+      console.error('template failed', e)
+      window.alert(`Couldn't set up the template: ${e?.message || e}`)
+    }
   }
 
   async function updateDay(id, fields) {
@@ -414,6 +468,14 @@ export default function Planner() {
             </div>
           </div>
 
+          {workout.days.length === 0 && (
+            <Welcome
+              isFirstPlan={workouts.length <= 1}
+              onAddDay={addDay}
+              onUseTemplate={applyTemplate}
+            />
+          )}
+
           <div className="days-grid">
             {workout.days.map(day => (
               <DayCard
@@ -430,6 +492,8 @@ export default function Planner() {
                 onStart={startWorkout}
                 onHistory={setHistoryFor}
                 onGroup={(d, ex) => setGroupEdit({ dayId: d.id, exId: ex.id })}
+                onCopyEx={(d, ex) => setCopyEx({ dayId: d.id, exId: ex.id })}
+                onDuplicate={duplicateDay}
               />
             ))}
           </div>
@@ -439,6 +503,17 @@ export default function Planner() {
       <DragOverlay>
         {activeName ? <div className="lib-item dragging">{activeName}</div> : null}
       </DragOverlay>
+
+      {copyEx && (() => {
+        const d = workout.days.find(x => x.id === copyEx.dayId)
+        const ex = d?.exercises.find(x => x.id === copyEx.exId)
+        if (!ex) return null
+        return (
+          <CopySheet ex={ex} days={workout.days} fromDayId={d.id}
+            onCopy={toDayId => copyExerciseTo(ex.id, d.id, toDayId)}
+            onClose={() => setCopyEx(null)} />
+        )
+      })()}
 
       {groupEdit && (() => {
         const d = workout.days.find(x => x.id === groupEdit.dayId)

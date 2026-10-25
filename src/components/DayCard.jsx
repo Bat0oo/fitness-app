@@ -7,10 +7,23 @@ import { bestRecord } from '../lib/pr'
 import { dayGroups, groupSummary } from '../lib/groups'
 
 export default function DayCard({
-  day, unit = 'kg', prs = {}, onUpdateDay, onRemoveDay, onUpdateEx, onRemoveEx, onAddClick, onAddCustom, onStart, onHistory, onGroup,
+  day, unit = 'kg', prs = {}, onUpdateDay, onRemoveDay, onUpdateEx, onRemoveEx, onAddClick, onAddCustom, onStart, onHistory, onGroup, onCopyEx, onDuplicate,
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `day-${day.id}` })
   const [custom, setCustom] = useState('')
+  const [dupBusy, setDupBusy] = useState(false)
+
+  async function duplicate() {
+    setDupBusy(true)
+    try {
+      await onDuplicate(day.id)
+    } catch (e) {
+      console.error('duplicate day failed', e)
+      window.alert(`Couldn't duplicate the day: ${e?.message || e}`)
+    } finally {
+      setDupBusy(false)
+    }
+  }
 
   function submitCustom(e) {
     e.preventDefault()
@@ -48,6 +61,7 @@ export default function DayCard({
         onRemove={() => onRemoveEx(ex.id)}
         onHistory={() => onHistory?.(ex.name)}
         onGroup={day.exercises.length > 1 ? () => onGroup?.(day, ex) : undefined}
+        onCopy={onCopyEx ? () => onCopyEx(day, ex) : undefined}
       />
     )
   }
@@ -62,7 +76,7 @@ export default function DayCard({
       </div>
 
       <div ref={setNodeRef} className={`day-list ${isOver ? 'over' : ''}`}>
-        {day.exercises.length === 0 && <div className="day-empty">No exercises yet</div>}
+        {day.exercises.length === 0 && <div className="day-empty">No exercises yet — drag one here or type your own below</div>}
         <SortableContext
           items={day.exercises.map(e => e.id)}
           strategy={verticalListSortingStrategy}
@@ -99,7 +113,14 @@ export default function DayCard({
         {/* mobile: pick from library (hidden on desktop via CSS) */}
         <button className="btn-add-ex" onClick={() => onAddClick(day)}>+ Add from library</button>
 
-        <button className="btn-danger-ghost" onClick={() => onRemoveDay(day.id)}>Remove day</button>
+        <div className="day-foot-row">
+          {onDuplicate && (
+            <button className="btn-ghost-border" disabled={dupBusy} onClick={duplicate}>
+              {dupBusy ? 'Copying…' : 'Duplicate day'}
+            </button>
+          )}
+          <button className="btn-danger-ghost" onClick={() => onRemoveDay(day.id)}>Remove day</button>
+        </div>
       </div>
     </div>
   )

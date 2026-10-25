@@ -368,3 +368,30 @@ input, button { font-family: inherit; }
   padding: 8px 10px; font-size: 13px; cursor: pointer;
 }
 .rest-btns button:hover { background: rgba(255,255,255,.24); }
+
+/* ---------- duplicate day / copy exercise ---------- */
+.icon-copy:hover { color: #1D9E75; }
+.day-foot-row { display: flex; gap: 6px; }
+.btn-ghost-border {
+  font-size: 13px; padding: 8px 12px; border-radius: 8px; cursor: pointer; width: 100%;
+  background: transparent; border: 0.5px solid #ddd; color: #555;
+}
+.btn-ghost-border:hover { background: #f7f7f7; }
+.copy-day { display: flex; align-items: center; gap: 8px; }
+.copy-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+
+/* ---------- welcome / empty plan ---------- */
+.welcome {
+  background: #fff; border-radius: 14px; padding: 24px; max-width: 620px; margin-bottom: 12px;
+  border: 0.5px solid #eee;
+}
+.welcome-title { font-size: 20px; margin-bottom: 12px; }
+.welcome-steps { padding-left: 20px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; color: #444; line-height: 1.45; }
+.welcome-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.welcome-actions .btn-start { width: auto; padding: 10px 16px; }
+.welcome-actions .btn { padding: 10px 16px; }
+.welcome-note { font-size: 12px; color: #999; margin-top: 12px; }
+@media (max-width: 640px) {
+  .welcome { padding: 18px; }
+  .welcome-actions .btn-start, .welcome-actions .btn { width: 100%; }
+}
