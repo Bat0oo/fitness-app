@@ -366,3 +366,13 @@ export async function createDayWithExercises(workoutId, position, day, exercises
 
   return { ...newDay, exercises: newExercises, groups: newGroups }
 }
+
+// ---------- admin ----------
+
+// Usage stats for the /admin page. The database function itself refuses
+// anyone not in the `admins` table, so this is safe to ship to every user.
+export async function loadAdminStats() {
+  const { data, error } = await supabase.rpc('admin_stats')
+  if (error) throw error
+  return data
+}

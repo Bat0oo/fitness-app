@@ -212,3 +212,70 @@ create policy "own exercise groups" on exercise_groups
 -- ============================================================
 alter table profiles
   add column if not exists active_workout_id uuid references workouts(id) on delete set null;
+
+-- ============================================================
+-- ADMIN STATS
+-- Access is enforced HERE, server-side: admin_stats() checks that the
+-- caller's user id is in `admins`. `admins` has RLS on and no policies,
+-- so nobody can read or modify it through the API — only the SQL Editor.
+-- Keyed by user id (not email) so an unverified sign-up can't pose as you.
+-- ============================================================
+create table if not exists admins (
+  user_id uuid primary key references auth.users(id) on delete cascade
+);
+alter table admins enable row level security;  -- intentionally no policies
+
+create or replace function admin_stats()
+returns json
+language plpgsql
+security definer                    -- runs as owner so it can count all users
+set search_path = public, auth
+as $$
+begin
+  if not exists (select 1 from admins where user_id = auth.uid()) then
+    raise exception 'not authorized' using errcode = '42501';
+  end if;
+
+  return json_build_object(
+    'generated_at', now(),
+    'totals', json_build_object(
+      'users',         (select count(*) from auth.users),
+      'new_7d',        (select count(*) from auth.users where created_at      > now() - interval '7 days'),
+      'signed_in_7d',  (select count(*) from auth.users where last_sign_in_at > now() - interval '7 days'),
+      'signed_in_30d', (select count(*) from auth.users where last_sign_in_at > now() - interval '30 days'),
+      'logged_7d',     (select count(distinct user_id) from sessions where started_at > now() - interval '7 days'),
+      'logged_30d',    (select count(distinct user_id) from sessions where started_at > now() - interval '30 days'),
+      'workouts',      (select count(*) from workouts),
+      'exercises',     (select count(*) from exercises),
+      'sessions',      (select count(*) from sessions where finished_at is not null),
+      'sets',          (select count(*) from set_logs where done)
+    ),
+    'users', (
+      select coalesce(json_agg(u order by u.created_at desc), '[]'::json)
+      from (
+        select
+          au.email,
+          au.created_at,
+          au.last_sign_in_at,
+          (select count(*) from workouts w where w.user_id = au.id) as workouts,
+          (select count(*) from exercises e
+             join days d on d.id = e.day_id
+             join workouts w on w.id = d.workout_id
+           where w.user_id = au.id)                                 as exercises,
+          (select count(*) from sessions s
+           where s.user_id = au.id and s.finished_at is not null)    as sessions,
+          (select count(*) from set_logs l where l.user_id = au.id and l.done) as sets,
+          (select max(s.started_at) from sessions s where s.user_id = au.id)    as last_workout
+        from auth.users au
+      ) u
+    )
+  );
+end;
+$$;
+
+revoke all on function admin_stats() from public, anon;
+grant execute on function admin_stats() to authenticated;
+
+-- Make yourself admin (run once; change the email if needed):
+-- insert into admins (user_id)
+--   select id from auth.users where email = 'YOUR-EMAIL' on conflict do nothing;
