@@ -146,7 +146,15 @@ export default function Planner() {
   }
 
   if (loading) return <div className="center-msg">Loading…</div>
-  if (!workout) return <div className="center-msg">Something went wrong.</div>
+  if (!workout) {
+    // the installed app can open offline (cached shell), but your plan lives in Supabase
+    return (
+      <div className="center-msg">
+        <p>{navigator.onLine ? 'Something went wrong loading your plan.' : 'You’re offline — connect to load your plan.'}</p>
+        <button className="btn" style={{ marginTop: 12 }} onClick={() => window.location.reload()}>Retry</button>
+      </div>
+    )
+  }
 
   if (session) {
     return (
