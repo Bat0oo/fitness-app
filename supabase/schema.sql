@@ -279,3 +279,83 @@ grant execute on function admin_stats() to authenticated;
 -- Make yourself admin (run once; change the email if needed):
 -- insert into admins (user_id)
 --   select id from auth.users where email = 'YOUR-EMAIL' on conflict do nothing;
+
+-- Read-only detail for one user (admin only): plans → days → exercises,
+-- PRs, and the last 30 workouts with their ticked sets.
+create or replace function admin_user_detail(target_email text)
+returns json
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  uid uuid;
+begin
+  if not exists (select 1 from admins where user_id = auth.uid()) then
+    raise exception 'not authorized' using errcode = '42501';
+  end if;
+
+  select id into uid from auth.users where lower(email) = lower(target_email);
+  if uid is null then
+    raise exception 'user not found' using errcode = 'P0002';
+  end if;
+
+  return json_build_object(
+    'user', (
+      select json_build_object('email', email, 'created_at', created_at, 'last_sign_in_at', last_sign_in_at)
+      from auth.users where id = uid
+    ),
+    'plans', (
+      select coalesce(json_agg(json_build_object(
+        'id', w.id, 'name', w.name, 'created_at', w.created_at,
+        'days', (
+          select coalesce(json_agg(json_build_object(
+            'id', d.id, 'label', d.label, 'title', d.title, 'color', d.color,
+            'exercises', (
+              select coalesce(json_agg(json_build_object(
+                'name', e.name, 'sets', e.sets, 'reps', e.reps, 'kg', e.kg, 'group_id', e.group_id
+              ) order by e.position), '[]'::json)
+              from exercises e where e.day_id = d.id
+            ),
+            'groups', (
+              select coalesce(json_agg(json_build_object(
+                'id', g.id, 'label', g.label, 'mode', g.mode, 'pick_count', g.pick_count
+              )), '[]'::json)
+              from exercise_groups g where g.day_id = d.id
+            )
+          ) order by d.position), '[]'::json)
+          from days d where d.workout_id = w.id
+        )
+      ) order by w.created_at), '[]'::json)
+      from workouts w where w.user_id = uid
+    ),
+    'prs', (
+      select coalesce(json_agg(p order by p.last_logged_at desc), '[]'::json)
+      from (
+        select exercise_key, unit, best_weight, reps_at_best, best_e1rm, last_logged_at
+        from exercise_prs where user_id = uid
+      ) p
+    ),
+    'sessions', (
+      select coalesce(json_agg(x order by x.started_at desc), '[]'::json)
+      from (
+        select s.started_at, s.finished_at, s.day_title,
+          (
+            select coalesce(json_agg(json_build_object(
+              'exercise', l.exercise_name, 'set', l.set_number,
+              'weight', l.weight, 'unit', l.unit, 'reps', l.reps
+            ) order by l.logged_at, l.set_number), '[]'::json)
+            from set_logs l where l.session_id = s.id and l.done
+          ) as sets
+        from sessions s
+        where s.user_id = uid
+        order by s.started_at desc
+        limit 30
+      ) x
+    )
+  );
+end;
+$$;
+
+revoke all on function admin_user_detail(text) from public, anon;
+grant execute on function admin_user_detail(text) to authenticated;

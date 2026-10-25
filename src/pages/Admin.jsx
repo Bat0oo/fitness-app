@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../lib/useAuth'
 import * as data from '../lib/data'
+import AdminUser from './AdminUser'
 
 const fmtDate = d => (d ? new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : '—')
 const fmtAgo = d => {
@@ -17,6 +18,20 @@ export default function Admin() {
   const [state, setState] = useState('loading') // loading | ok | denied | error
   const [err, setErr] = useState('')
   const [sort, setSort] = useState('created_at')
+  // selected user lives in the URL (?user=…) so the back button and links work
+  const [viewing, setViewing] = useState(() => new URLSearchParams(window.location.search).get('user'))
+
+  useEffect(() => {
+    const onPop = () => setViewing(new URLSearchParams(window.location.search).get('user'))
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  function openUser(email) {
+    window.history.pushState(null, '', email ? `/admin?user=${encodeURIComponent(email)}` : '/admin')
+    setViewing(email)
+    window.scrollTo(0, 0)
+  }
 
   function load() {
     setState('loading')
@@ -49,6 +64,8 @@ export default function Admin() {
       </div>
     )
   }
+
+  if (viewing) return <AdminUser email={viewing} onBack={() => openUser(null)} />
 
   const t = stats.totals
   const users = [...stats.users].sort((a, b) => {
@@ -115,7 +132,9 @@ export default function Admin() {
           <tbody>
             {users.map(u => (
               <tr key={u.email}>
-                <td className="admin-email">{u.email}</td>
+                <td className="admin-email">
+                  <button className="admin-user-link" onClick={() => openUser(u.email)}>{u.email}</button>
+                </td>
                 <td>{fmtDate(u.created_at)}</td>
                 <td>{fmtAgo(u.last_sign_in_at)}</td>
                 <td className="num">{u.workouts}</td>

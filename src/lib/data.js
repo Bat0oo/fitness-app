@@ -376,3 +376,10 @@ export async function loadAdminStats() {
   if (error) throw error
   return data
 }
+
+// One user's plans, PRs and recent workouts (read-only). Admin-only, enforced in SQL.
+export async function loadAdminUserDetail(email) {
+  const { data, error } = await supabase.rpc('admin_user_detail', { target_email: email })
+  if (error) throw error
+  return data
+}
