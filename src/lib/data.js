@@ -90,3 +90,23 @@ export async function reorderExercises(orderedIds) {
   const failed = results.find(r => r.error)
   if (failed) throw failed.error
 }
+// ---------- profile / preferences ----------
+
+// Returns the user's weight unit ('kg' | 'lb'). Defaults to 'kg' if no profile row yet.
+export async function loadUnit(userId) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('unit')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) throw error
+  return data?.unit === 'lb' ? 'lb' : 'kg'
+}
+
+// Saves the weight unit (creates the profile row on first save).
+export async function saveUnit(userId, unit) {
+  const { error } = await supabase
+    .from('profiles')
+    .upsert({ user_id: userId, unit }, { onConflict: 'user_id' })
+  if (error) throw error
+}
