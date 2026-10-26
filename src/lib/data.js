@@ -33,6 +33,13 @@ export async function loadOrCreateWorkout(userId) {
   // sort nested exercises by position
   days.forEach(d => d.exercises.sort((a, b) => a.position - b.position))
 
+  // alternative groups load separately so a missing table never blocks the planner
+  const groups = await loadGroups(days.map(d => d.id)).catch(e => {
+    console.error('load exercise groups failed', e)
+    return []
+  })
+  days.forEach(d => { d.groups = groups.filter(g => g.day_id === d.id) })
+
   return { ...workout, days }
 }
 
@@ -234,4 +241,41 @@ export async function loadPRs(userId, names) {
   const out = {}
   for (const row of data) (out[row.exercise_key] ||= []).push(row)
   return out
+}
+
+// ---------- alternative exercise groups ----------
+
+async function loadGroups(dayIds) {
+  if (dayIds.length === 0) return []
+  const { data, error } = await supabase.from('exercise_groups').select('*').in('day_id', dayIds)
+  if (error) throw error
+  return data
+}
+
+export async function createGroup(dayId, fields) {
+  const { data, error } = await supabase
+    .from('exercise_groups')
+    .insert({ day_id: dayId, ...fields })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function updateGroup(id, fields) {
+  const { error } = await supabase.from('exercise_groups').update(fields).eq('id', id)
+  if (error) throw error
+}
+
+// Members' group_id is cleared automatically (on delete set null).
+export async function deleteGroup(id) {
+  const { error } = await supabase.from('exercise_groups').delete().eq('id', id)
+  if (error) throw error
+}
+
+// Put exercises into a group, or take them out with groupId = null.
+export async function setExercisesGroup(exerciseIds, groupId) {
+  if (exerciseIds.length === 0) return
+  const { error } = await supabase.from('exercises').update({ group_id: groupId }).in('id', exerciseIds)
+  if (error) throw error
 }

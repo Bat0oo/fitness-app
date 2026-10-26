@@ -4,9 +4,10 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import SortableExerciseRow from './SortableExerciseRow'
 import { exerciseKey } from '../lib/data'
 import { bestRecord } from '../lib/pr'
+import { dayGroups, groupSummary } from '../lib/groups'
 
 export default function DayCard({
-  day, unit = 'kg', prs = {}, onUpdateDay, onRemoveDay, onUpdateEx, onRemoveEx, onAddClick, onAddCustom, onStart, onHistory,
+  day, unit = 'kg', prs = {}, onUpdateDay, onRemoveDay, onUpdateEx, onRemoveEx, onAddClick, onAddCustom, onStart, onHistory, onGroup,
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `day-${day.id}` })
   const [custom, setCustom] = useState('')
@@ -17,6 +18,38 @@ export default function DayCard({
     if (!name) return
     onAddCustom(day.id, name)
     setCustom('')
+  }
+
+  // Plan order, but a group's members are drawn together in one box,
+  // at the position of the group's first member.
+  function renderItems() {
+    const groups = dayGroups(day)
+    const drawn = new Set()
+    const items = []
+    for (const ex of day.exercises) {
+      const g = ex.group_id && groups[ex.group_id]
+      if (!g) items.push({ type: 'ex', ex })
+      else if (!drawn.has(g.group.id)) {
+        drawn.add(g.group.id)
+        items.push({ type: 'group', ...g })
+      }
+    }
+    return items
+  }
+
+  function renderRow(ex) {
+    return (
+      <SortableExerciseRow
+        key={ex.id}
+        ex={ex}
+        unit={unit}
+        record={bestRecord(prs[exerciseKey(ex.name)], unit)}
+        onChange={fields => onUpdateEx(ex.id, fields)}
+        onRemove={() => onRemoveEx(ex.id)}
+        onHistory={() => onHistory?.(ex.name)}
+        onGroup={day.exercises.length > 1 ? () => onGroup?.(day, ex) : undefined}
+      />
+    )
   }
 
   return (
@@ -34,17 +67,16 @@ export default function DayCard({
           items={day.exercises.map(e => e.id)}
           strategy={verticalListSortingStrategy}
         >
-          {day.exercises.map(ex => (
-            <SortableExerciseRow
-              key={ex.id}
-              ex={ex}
-              unit={unit}
-              record={bestRecord(prs[exerciseKey(ex.name)], unit)}
-              onChange={fields => onUpdateEx(ex.id, fields)}
-              onRemove={() => onRemoveEx(ex.id)}
-              onHistory={() => onHistory?.(ex.name)}
-            />
-          ))}
+          {renderItems().map(item => item.type === 'group' ? (
+            <div key={`g-${item.group.id}`} className="grp-box">
+              <button className="grp-head" onClick={() => onGroup?.(day, item.members[0])}>
+                <span className="grp-tag">⇄ {groupSummary(item.group, item.members.length)}</span>
+                {item.group.label && <span className="grp-name">{item.group.label}</span>}
+                <span className="grp-edit">Edit</span>
+              </button>
+              {item.members.map(renderRow)}
+            </div>
+          ) : renderRow(item.ex))}
         </SortableContext>
       </div>
 

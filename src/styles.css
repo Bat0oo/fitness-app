@@ -275,3 +275,48 @@ input, button { font-family: inherit; }
   display: flex; flex-wrap: wrap; gap: 12px; font-size: 13px; color: #555;
   background: #fff8e8; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px;
 }
+
+/* ---------- alternative groups ("this OR that") ---------- */
+.icon-group:hover { color: #534AB7; }
+.grp-box {
+  border: 1px dashed #c9c5ee; border-radius: 10px; padding: 2px 4px 4px; margin: 4px 0;
+  background: #faf9ff;
+}
+.grp-head {
+  display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 4px;
+  background: transparent; border: none; cursor: pointer; text-align: left;
+}
+.grp-tag {
+  font-size: 10px; font-weight: 700; color: #534AB7; background: #ece9fb;
+  padding: 2px 6px; border-radius: 999px; white-space: nowrap;
+}
+.grp-name { font-size: 12px; color: #555; flex: 1; }
+.grp-edit { font-size: 11px; color: #888; margin-left: auto; }
+
+.grp-help { font-size: 13px; color: #777; margin: 4px 2px 8px; }
+.grp-option {
+  display: flex; align-items: center; gap: 10px; padding: 12px; font-size: 15px;
+  background: #fafafa; border: 0.5px solid #eee; border-radius: 10px; cursor: pointer;
+}
+.grp-option input { width: 18px; height: 18px; accent-color: #534AB7; }
+.grp-option.locked { cursor: default; background: #f3f1ff; }
+.grp-settings { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.grp-label {
+  width: 100%; padding: 10px 12px; border: 0.5px solid #ddd; border-radius: 10px; font-size: 14px;
+}
+.grp-mode { align-self: flex-start; }
+.grp-pick { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.grp-pick select { padding: 6px 8px; border-radius: 8px; border: 0.5px solid #ccc; font-size: 14px; }
+.grp-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+.log-group {
+  border: 1px dashed #c9c5ee; border-radius: 14px; padding: 10px; background: #faf9ff;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.log-group-head { display: flex; align-items: center; gap: 8px; }
+.log-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.log-tab {
+  font-size: 13px; padding: 7px 12px; border-radius: 999px; cursor: pointer;
+  border: 0.5px solid #c9c5ee; background: #fff; color: #534AB7;
+}
+.log-tab.active { background: #534AB7; color: #fff; border-color: #534AB7; }
