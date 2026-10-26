@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import * as data from '../lib/data'
 import HistorySheet from './HistorySheet'
+import { bestRecord, convert, estimate1RM } from '../lib/pr'
 
 // "12,5" -> 12.5, "" -> null
 const toWeight = v => {
@@ -43,7 +44,7 @@ function buildSets(planEx, logged, last) {
   return rows
 }
 
-export default function SessionView({ session, day, userId, unit, onExit }) {
+export default function SessionView({ session, day, userId, unit, prs = {}, onExit }) {
   const [exercises, setExercises] = useState(null) // [{ key, name, exercise_id, sets }]
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -152,6 +153,19 @@ export default function SessionView({ session, day, userId, unit, onExit }) {
     setExercises(list => list.map(e => e.key !== ex.key ? e : { ...e, sets: e.sets.slice(0, -1) }))
   }
 
+  // A ticked set beats the best weight or est. 1RM logged before this workout.
+  // (The PR snapshot is loaded when the planner opens; it's refreshed after Finish.)
+  function isPR(ex, set) {
+    if (!set.done) return false
+    const rec = bestRecord(prs[ex.key], unit)
+    if (!rec) return false // first time logging this exercise: nothing to beat yet
+    const w = toWeight(set.weight)
+    if (w === null) return false
+    if (w > convert(rec.weight, rec.unit, unit) + 0.01) return true
+    const e = estimate1RM(w, toReps(set.reps))
+    return e !== null && rec.e1rm !== null && e > convert(rec.e1rm, rec.unit, unit) + 0.01
+  }
+
   const doneCount = exercises?.reduce((n, ex) => n + ex.sets.filter(s => s.done).length, 0) ?? 0
 
   async function finish() {
@@ -220,7 +234,9 @@ export default function SessionView({ session, day, userId, unit, onExit }) {
           </div>
           {ex.sets.map(set => (
             <div key={set.set_number} className={`log-grid ${set.done ? 'done' : ''}`}>
-              <span className="log-setno">{set.set_number}</span>
+              <span className="log-setno">
+                {isPR(ex, set) ? <span className="pr-mark" title="New personal record">PR</span> : set.set_number}
+              </span>
               <span className="log-prev">
                 {set.prev
                   ? `${str(set.prev.weight) || '–'}${set.prev.unit !== unit ? ' ' + set.prev.unit : ''} × ${str(set.prev.reps) || '–'}`
@@ -250,7 +266,7 @@ export default function SessionView({ session, day, userId, unit, onExit }) {
       ))}
 
       {historyFor && (
-        <HistorySheet userId={userId} name={historyFor} onClose={() => setHistoryFor(null)} />
+        <HistorySheet userId={userId} name={historyFor} unit={unit} onClose={() => setHistoryFor(null)} />
       )}
     </div>
   )

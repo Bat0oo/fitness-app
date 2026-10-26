@@ -260,3 +260,18 @@ input, button { font-family: inherit; }
 .hist-date { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
 .hist-sets { display: flex; flex-wrap: wrap; gap: 6px; }
 .hist-set { font-size: 13px; background: #f4f4f2; padding: 3px 8px; border-radius: 6px; }
+
+/* ---------- personal records ---------- */
+.pr-badge {
+  display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px;
+  background: #fff4dc; color: #a26a00; font-size: 10px; font-weight: 600; vertical-align: middle;
+  white-space: nowrap;
+}
+.pr-mark {
+  display: inline-block; padding: 1px 4px; border-radius: 4px;
+  background: #f5b300; color: #fff; font-size: 10px; font-weight: 700;
+}
+.hist-best {
+  display: flex; flex-wrap: wrap; gap: 12px; font-size: 13px; color: #555;
+  background: #fff8e8; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px;
+}

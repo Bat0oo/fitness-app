@@ -218,3 +218,20 @@ async function loadRecentSessionsForKey(userId, key, maxSessions, excludeSession
   sessions.forEach(s => s.sets.sort((a, b) => a.set_number - b.set_number))
   return sessions
 }
+
+// ---------- personal records ----------
+
+// The user's PR rows: { [exerciseKey]: [{ unit, best_weight, reps_at_best, best_e1rm }] }
+// (one entry per unit the exercise was logged in). Pass `names` to limit it.
+export async function loadPRs(userId, names) {
+  let q = supabase
+    .from('exercise_prs')
+    .select('exercise_key, unit, best_weight, reps_at_best, best_e1rm')
+    .eq('user_id', userId)
+  if (names) q = q.in('exercise_key', names.map(exerciseKey))
+  const { data, error } = await q
+  if (error) throw error
+  const out = {}
+  for (const row of data) (out[row.exercise_key] ||= []).push(row)
+  return out
+}

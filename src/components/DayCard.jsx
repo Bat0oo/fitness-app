@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import SortableExerciseRow from './SortableExerciseRow'
+import { exerciseKey } from '../lib/data'
+import { bestRecord } from '../lib/pr'
 
 export default function DayCard({
-  day, unit = 'kg', onUpdateDay, onRemoveDay, onUpdateEx, onRemoveEx, onAddClick, onAddCustom, onStart, onHistory,
+  day, unit = 'kg', prs = {}, onUpdateDay, onRemoveDay, onUpdateEx, onRemoveEx, onAddClick, onAddCustom, onStart, onHistory,
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `day-${day.id}` })
   const [custom, setCustom] = useState('')
@@ -37,6 +39,7 @@ export default function DayCard({
               key={ex.id}
               ex={ex}
               unit={unit}
+              record={bestRecord(prs[exerciseKey(ex.name)], unit)}
               onChange={fields => onUpdateEx(ex.id, fields)}
               onRemove={() => onRemoveEx(ex.id)}
               onHistory={() => onHistory?.(ex.name)}
