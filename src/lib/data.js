@@ -311,3 +311,58 @@ export async function setExercisesGroup(exerciseIds, groupId) {
   const { error } = await supabase.from('exercises').update({ group_id: groupId }).in('id', exerciseIds)
   if (error) throw error
 }
+
+// ---------- copying (duplicate day / copy exercise / templates) ----------
+
+// Copy one exercise (name, sets, reps, weight) to the end of a day. Not its group.
+export async function copyExercise(ex, dayId, position) {
+  const { data, error } = await supabase
+    .from('exercises')
+    .insert({ day_id: dayId, name: ex.name, sets: ex.sets ?? 3, reps: ex.reps ?? '10', kg: ex.kg ?? '', position })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+// Create a day with exercises (and optionally alternative groups) in one go.
+// `exercises`: [{ name, sets, reps, kg, group_id? }] in order.
+// `groups`: [{ id, label, mode, pick_count }] — exercises' group_id refers to these ids,
+// which are remapped to the newly created groups.
+export async function createDayWithExercises(workoutId, position, day, exercises, groups = []) {
+  const { data: newDay, error } = await supabase
+    .from('days')
+    .insert({ workout_id: workoutId, label: day.label, title: day.title, color: day.color, position })
+    .select()
+    .single()
+  if (error) throw error
+
+  const groupMap = {}
+  const newGroups = []
+  for (const g of groups) {
+    const created = await createGroup(newDay.id, { label: g.label, mode: g.mode, pick_count: g.pick_count })
+    groupMap[g.id] = created.id
+    newGroups.push(created)
+  }
+
+  let newExercises = []
+  if (exercises.length > 0) {
+    const { data: rows, error: exErr } = await supabase
+      .from('exercises')
+      .insert(exercises.map((ex, i) => ({
+        day_id: newDay.id,
+        name: ex.name,
+        sets: ex.sets ?? 3,
+        reps: ex.reps ?? '10',
+        kg: ex.kg ?? '',
+        position: i,
+        // only send group_id when there is one, so this works before the groups SQL is run
+        ...(ex.group_id && groupMap[ex.group_id] ? { group_id: groupMap[ex.group_id] } : {}),
+      })))
+      .select()
+    if (exErr) throw exErr
+    newExercises = rows.sort((a, b) => a.position - b.position)
+  }
+
+  return { ...newDay, exercises: newExercises, groups: newGroups }
+}

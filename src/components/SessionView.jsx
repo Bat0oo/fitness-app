@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import * as data from '../lib/data'
 import HistorySheet from './HistorySheet'
+import RestTimer, { getDefaultRest, unlockAudio } from './RestTimer'
 import { bestRecord, convert, estimate1RM } from '../lib/pr'
 import { dayGroups, groupSummary, pickLimit } from '../lib/groups'
 
@@ -53,6 +54,18 @@ export default function SessionView({ session, day, userId, unit, prs = {}, onEx
   // alternatives: { [groupId]: { group, keys: [exerciseKey...] } } and which keys are picked
   const [groups, setGroups] = useState({})
   const [picked, setPicked] = useState({}) // { [groupId]: [exerciseKey...] }
+  // rest countdown { endAt, total }; kept in localStorage so a reload doesn't lose it
+  const restKey = `rest-${session.id}`
+  const [rest, setRestState] = useState(() => {
+    try {
+      const r = JSON.parse(localStorage.getItem(restKey))
+      return r && r.endAt > Date.now() ? r : null
+    } catch { return null }
+  })
+  const setRest = useCallback(r => {
+    setRestState(r)
+    try { r ? localStorage.setItem(restKey, JSON.stringify(r)) : localStorage.removeItem(restKey) } catch { /* ignore */ }
+  }, [restKey])
 
   // initial load: merge plan + already-logged sets + last session's numbers
   useEffect(() => {
@@ -178,6 +191,11 @@ export default function SessionView({ session, day, userId, unit, prs = {}, onEx
     const next = { ...set, done: !set.done }
     patchSet(ex.key, set.set_number, { done: next.done })
     persist(ex, next)
+    if (next.done) {
+      unlockAudio() // we're inside a click, so the end beep is allowed to play
+      const total = getDefaultRest()
+      setRest({ endAt: Date.now() + total * 1000, total })
+    }
   }
 
   // editing a set that's already stored keeps the stored copy in sync
@@ -235,6 +253,7 @@ export default function SessionView({ session, day, userId, unit, prs = {}, onEx
     setBusy(true)
     try {
       await data.finishSession(session.id)
+      setRest(null)
       onExit()
     } catch (e) {
       console.error(e)
@@ -248,6 +267,7 @@ export default function SessionView({ session, day, userId, unit, prs = {}, onEx
     setBusy(true)
     try {
       await data.discardSession(session.id)
+      setRest(null)
       onExit()
     } catch (e) {
       console.error(e)
@@ -319,7 +339,7 @@ export default function SessionView({ session, day, userId, unit, prs = {}, onEx
   const started = new Date(session.started_at)
 
   return (
-    <div className="session">
+    <div className={`session ${rest ? 'with-rest' : ''}`}>
       <div className="session-top">
         <div>
           <div className="session-title">{session.day_title || day?.title || 'Workout'}</div>
@@ -366,6 +386,8 @@ export default function SessionView({ session, day, userId, unit, prs = {}, onEx
             .map(renderExercise)}
         </div>
       ) : renderExercise(item.ex))}
+
+      {rest && <RestTimer rest={rest} onChange={setRest} />}
 
       {historyFor && (
         <HistorySheet userId={userId} name={historyFor} unit={unit} onClose={() => setHistoryFor(null)} />

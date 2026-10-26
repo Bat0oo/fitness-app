@@ -152,3 +152,37 @@ export function searchExercises(list, query) {
     return words.every(w => name.includes(w))
   })
 }
+
+// Starter plan offered on the empty-plan welcome screen.
+export const STARTER_TEMPLATE = [
+  {
+    label: 'Day 1', title: 'Push',
+    exercises: [
+      { name: 'Bench Press', sets: 3, reps: '6-8' },
+      { name: 'Incline Dumbbell Press', sets: 3, reps: '8-10' },
+      { name: 'Shoulder Press', sets: 3, reps: '8-10' },
+      { name: 'Lateral Raise', sets: 3, reps: '12-15' },
+      { name: 'Triceps Pushdown', sets: 3, reps: '10-12' },
+    ],
+  },
+  {
+    label: 'Day 2', title: 'Pull',
+    exercises: [
+      { name: 'Lat Pulldown', sets: 3, reps: '8-10' },
+      { name: 'Seated Cable Row', sets: 3, reps: '8-10' },
+      { name: 'Face Pull', sets: 3, reps: '12-15' },
+      { name: 'Biceps Curl', sets: 3, reps: '10-12' },
+      { name: 'Hammer Curl', sets: 3, reps: '10-12' },
+    ],
+  },
+  {
+    label: 'Day 3', title: 'Legs',
+    exercises: [
+      { name: 'Squat', sets: 3, reps: '6-8' },
+      { name: 'Romanian Deadlift', sets: 3, reps: '8-10' },
+      { name: 'Leg Press', sets: 3, reps: '10-12' },
+      { name: 'Leg Curl', sets: 3, reps: '10-12' },
+      { name: 'Calf Raise', sets: 3, reps: '12-15' },
+    ],
+  },
+]

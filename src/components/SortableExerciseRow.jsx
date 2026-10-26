@@ -4,7 +4,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { formatWeight } from '../lib/pr'
 
 // A single exercise line that can be dragged up/down to reorder within its day.
-export default function SortableExerciseRow({ ex, unit = 'kg', record, onChange, onRemove, onHistory, onGroup }) {
+export default function SortableExerciseRow({ ex, unit = 'kg', record, onChange, onRemove, onHistory, onGroup, onCopy }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: ex.id })
 
@@ -39,6 +39,10 @@ export default function SortableExerciseRow({ ex, unit = 'kg', record, onChange,
             {onGroup && (
               <button className="icon-btn icon-group" onClick={onGroup}
                 aria-label={`Alternatives for ${ex.name}`} title="Alternatives (this OR that)">⇄</button>
+            )}
+            {onCopy && (
+              <button className="icon-btn icon-copy" onClick={onCopy}
+                aria-label={`Copy ${ex.name}`} title="Copy to a day">⧉</button>
             )}
             {onHistory && (
               <button className="icon-btn icon-history" onClick={onHistory}
