@@ -15,6 +15,9 @@ import GroupSheet from '../components/GroupSheet'
 export default function Planner() {
   const { user, signOut } = useAuth()
   const [workout, setWorkout] = useState(null)
+  const [workouts, setWorkouts] = useState([]) // all plans (rows only, for the switcher)
+  const [switching, setSwitching] = useState(false)
+  const [newPlanName, setNewPlanName] = useState(null) // null = form closed
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [activeName, setActiveName] = useState(null)
@@ -36,20 +39,100 @@ export default function Planner() {
 
   useEffect(() => {
     if (!user) return
-    data.loadOrCreateWorkout(user.id)
-      .then(w => setWorkout(w))
-      .catch(e => console.error(e))
-      .finally(() => setLoading(false))
-    // unit preference loads separately so a failure here never blocks the planner
-    data.loadUnit(user.id)
-      .then(u => setUnit(u))
-      .catch(e => console.error('load unit failed', e))
-    // resume a workout left unfinished (reload, closed tab…)
-    data.loadActiveSession(user.id)
-      .then(s => setSession(s))
-      .catch(e => console.error('load active session failed', e))
+    let alive = true
+    ;(async () => {
+      try {
+        const [list, profile, active] = await Promise.all([
+          data.listOrCreateWorkouts(user.id),
+          // profile + session failures must never block the planner
+          data.loadProfile(user.id).catch(e => {
+            console.error('load profile failed', e)
+            return { unit: 'kg', active_workout_id: null }
+          }),
+          data.loadActiveSession(user.id).catch(e => {
+            console.error('load active session failed', e)
+            return null
+          }),
+        ])
+        if (!alive) return
+        setUnit(profile.unit)
+
+        // open the last-used plan — or, when resuming a workout, the plan it came from
+        let targetId = profile.active_workout_id
+        if (active?.day_id) {
+          const wid = await data.workoutIdForDay(active.day_id).catch(() => null)
+          if (wid) targetId = wid
+        }
+        const row = list.find(w => w.id === targetId) || list[0]
+        const w = await data.loadWorkout(row)
+        if (!alive) return
+        setWorkouts(list)
+        setWorkout(w)
+        setSession(active) // resume a workout left unfinished (reload, closed tab…)
+      } catch (e) {
+        console.error(e)
+      } finally {
+        if (alive) setLoading(false)
+      }
+    })()
     refreshPRs()
+    return () => { alive = false }
   }, [user])
+
+  // ---------- multiple plans ----------
+
+  async function switchWorkout(id) {
+    if (id === workout?.id) return
+    const row = workouts.find(w => w.id === id)
+    if (!row) return
+    setSwitching(true)
+    try {
+      const w = await data.loadWorkout(row)
+      setWorkout(w)
+      setSheetDay(null); setHistoryFor(null); setGroupEdit(null)
+      data.saveActiveWorkout(user.id, id).catch(e => console.error('save active plan failed', e))
+    } catch (e) {
+      console.error(e)
+      window.alert(`Couldn't open that plan: ${e?.message || e}`)
+    } finally {
+      setSwitching(false)
+    }
+  }
+
+  async function newWorkout(e) {
+    e?.preventDefault()
+    const name = (newPlanName || '').trim()
+    if (!name) return
+    try {
+      const row = await data.createWorkout(user.id, name)
+      setWorkouts(list => [...list, row])
+      setWorkout({ ...row, days: [] })
+      setNewPlanName(null)
+      data.saveActiveWorkout(user.id, row.id).catch(e => console.error('save active plan failed', e))
+    } catch (e) {
+      console.error(e)
+      window.alert(`Couldn't create the plan: ${e?.message || e}`)
+    }
+  }
+
+  async function deleteCurrentWorkout() {
+    if (workouts.length <= 1) return
+    const ok = window.confirm(
+      `Delete "${workout.name || 'this plan'}"? Its days and exercises will be removed.\n` +
+      'Your logged workouts, history and PRs are kept.'
+    )
+    if (!ok) return
+    try {
+      await data.deleteWorkout(workout.id)
+      const rest = workouts.filter(w => w.id !== workout.id)
+      setWorkouts(rest)
+      setWorkout(await data.loadWorkout(rest[0]))
+      data.saveActiveWorkout(user.id, rest[0].id).catch(e => console.error('save active plan failed', e))
+    } catch (e) {
+      console.error(e)
+      window.alert(`Couldn't delete the plan: ${e?.message || e}`)
+    }
+  }
 
   function refreshPRs() {
     if (!user) return
@@ -256,8 +339,10 @@ export default function Planner() {
   }
 
   async function renameWorkout(name) {
+    if (name === workout.name) return
     await data.renameWorkout(workout.id, name)
     setWorkout(w => ({ ...w, name }))
+    setWorkouts(list => list.map(w => (w.id === workout.id ? { ...w, name } : w)))
   }
 
   return (
@@ -293,7 +378,24 @@ export default function Planner() {
 
         <main className="main">
           <div className="topbar">
-            <input className="workout-name" defaultValue={workout.name}
+            <select className="plan-select" value={workout.id} disabled={switching}
+              aria-label="Switch plan"
+              onChange={e => (e.target.value === '__new' ? setNewPlanName('') : switchWorkout(e.target.value))}>
+              {workouts.map(w => <option key={w.id} value={w.id}>{w.name || 'Untitled plan'}</option>)}
+              <option value="__new">+ New plan…</option>
+            </select>
+            {newPlanName !== null && (
+              <form className="new-plan" onSubmit={newWorkout}>
+                <input autoFocus className="new-plan-input" placeholder="New plan name, e.g. Upper/Lower"
+                  value={newPlanName} onChange={e => setNewPlanName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Escape') setNewPlanName(null) }} />
+                <button type="submit" className="btn" disabled={!newPlanName.trim()}>Create</button>
+                <button type="button" className="btn-ghost" onClick={() => setNewPlanName(null)}>Cancel</button>
+              </form>
+            )}
+            {/* key resets the uncontrolled input when switching plans */}
+            <input key={workout.id} className="workout-name" defaultValue={workout.name}
+              aria-label="Plan name" title="Rename this plan"
               onBlur={e => renameWorkout(e.target.value)} />
             <div className="topbar-actions">
               <div className="unit-toggle" role="group" aria-label="Weight unit">
@@ -305,6 +407,9 @@ export default function Planner() {
                 ))}
               </div>
               <button onClick={addDay} className="btn">+ Add day</button>
+              {workouts.length > 1 && (
+                <button onClick={deleteCurrentWorkout} className="btn-ghost btn-del-plan">Delete plan</button>
+              )}
               <button onClick={signOut} className="btn-ghost">Sign out</button>
             </div>
           </div>

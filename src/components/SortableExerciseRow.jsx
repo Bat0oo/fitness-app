@@ -26,13 +26,26 @@ export default function SortableExerciseRow({ ex, unit = 'kg', record, onChange,
       </button>
 
       <div className="ex-left">
-        <div className="ex-name">
-          {ex.name}
+        {/* name + PR badge + small actions share the top line, so the
+            number inputs below get the full row width */}
+        <div className="ex-top">
+          <span className="ex-name" title={ex.name}>{ex.name}</span>
           {record && (
             <span className="pr-badge" title={record.e1rm ? `Est. 1RM ${formatWeight(record.e1rm)} ${record.unit}` : undefined}>
               PR {formatWeight(record.weight)} {record.unit}
             </span>
           )}
+          <div className="ex-actions">
+            {onGroup && (
+              <button className="icon-btn icon-group" onClick={onGroup}
+                aria-label={`Alternatives for ${ex.name}`} title="Alternatives (this OR that)">⇄</button>
+            )}
+            {onHistory && (
+              <button className="icon-btn icon-history" onClick={onHistory}
+                aria-label={`History for ${ex.name}`} title="History">↺</button>
+            )}
+            <button className="icon-btn" onClick={onRemove} aria-label="Remove exercise">✕</button>
+          </div>
         </div>
         <div className="ex-detail">
           <input className="mini" value={sets}
@@ -50,16 +63,6 @@ export default function SortableExerciseRow({ ex, unit = 'kg', record, onChange,
           <span className="unit-label">{unit}</span>
         </div>
       </div>
-
-      {onGroup && (
-        <button className="icon-btn icon-group" onClick={onGroup}
-          aria-label={`Alternatives for ${ex.name}`} title="Alternatives (this OR that)">⇄</button>
-      )}
-      {onHistory && (
-        <button className="icon-btn icon-history" onClick={onHistory}
-          aria-label={`History for ${ex.name}`} title="History">↺</button>
-      )}
-      <button className="icon-btn" onClick={onRemove} aria-label="Remove exercise">✕</button>
     </div>
   )
 }
