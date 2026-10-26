@@ -395,3 +395,25 @@ input, button { font-family: inherit; }
   .welcome { padding: 18px; }
   .welcome-actions .btn-start, .welcome-actions .btn { width: 100%; }
 }
+
+/* ---------- admin ---------- */
+.admin { max-width: 1100px; margin: 0 auto; padding: 16px; }
+.admin-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.admin-title { font-size: 22px; }
+.admin-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.admin-actions a.btn { text-decoration: none; color: inherit; }
+.admin-me { font-size: 12px; color: #888; }
+.admin-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.admin-card { background: #fff; border-radius: 12px; padding: 14px; border: 0.5px solid #eee; }
+.admin-card-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .05em; }
+.admin-card-value { font-size: 28px; font-weight: 600; margin: 4px 0; font-variant-numeric: tabular-nums; }
+.admin-card-sub { font-size: 12px; color: #999; }
+.admin-table-wrap { background: #fff; border-radius: 12px; border: 0.5px solid #eee; overflow-x: auto; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.admin-table th, .admin-table td { padding: 9px 12px; text-align: left; white-space: nowrap; border-bottom: 0.5px solid #f0f0f0; }
+.admin-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.admin-table tbody tr:hover { background: #fafafa; }
+.admin-email { font-weight: 500; }
+.admin-sort { background: none; border: none; padding: 0; font: inherit; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; }
+.admin-sort.active { color: #1a1a1a; }
+.admin-foot { font-size: 11px; color: #aaa; margin-top: 10px; }
