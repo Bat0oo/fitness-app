@@ -24,6 +24,14 @@ input, button { font-family: inherit; }
   margin-bottom: 10px; font-size: 13px;
 }
 .lib-list { display: flex; flex-direction: column; gap: 6px; max-height: 70vh; overflow: auto; }
+.lib-note { font-size: 12px; color: #888; padding: 6px 2px; }
+.lib-more {
+  font-size: 12px; color: #888; background: transparent; border: none; padding: 8px 2px;
+  cursor: pointer; text-align: left;
+}
+.lib-more:hover { color: #1a1a1a; }
+.lib-credit { font-size: 11px; color: #aaa; margin-top: 10px; }
+.lib-credit a { color: inherit; }
 .lib-item {
   font-size: 13px; padding: 8px 10px; background: #fafafa; border: 0.5px solid #e5e5e5;
   border-radius: 8px; cursor: grab; user-select: none; touch-action: none;
@@ -199,3 +207,56 @@ input, button { font-family: inherit; }
 @media (min-width: 641px) {
   .btn-add-ex { display: none; }
 }
+/* ---------- workout session (set logging) ---------- */
+.btn-start {
+  font-size: 13px; padding: 9px 12px; border-radius: 8px; cursor: pointer; width: 100%;
+  background: #1a1a1a; color: #fff; border: none; font-weight: 500;
+}
+.btn-start:hover { background: #333; }
+.icon-history:hover { color: #378ADD; }
+
+.app-session { justify-content: center; }
+.session { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 12px; }
+.session-top {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  position: sticky; top: 0; z-index: 10; background: #f5f5f3; padding: 8px 0;
+}
+.session-title { font-size: 20px; font-weight: 600; }
+.session-sub { font-size: 12px; color: #888; margin-top: 2px; }
+.session-actions { display: flex; gap: 6px; }
+.btn-finish {
+  font-size: 14px; padding: 9px 16px; border-radius: 8px; cursor: pointer;
+  background: #1D9E75; color: #fff; border: none; font-weight: 600;
+}
+.btn-finish:disabled { opacity: .5; cursor: default; }
+.session-err {
+  background: #fdeeee; color: #c23b3a; font-size: 13px; padding: 8px 12px; border-radius: 8px;
+}
+.session-empty { color: #888; font-size: 14px; padding: 20px 0; text-align: center; }
+
+.log-card { background: #fff; border-radius: 12px; padding: 12px; }
+.log-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.log-name { font-weight: 600; font-size: 15px; }
+.log-history-btn {
+  font-size: 12px; border: none; background: transparent; color: #378ADD; cursor: pointer; padding: 4px;
+}
+.log-grid {
+  display: grid; grid-template-columns: 32px 1fr 64px 52px 36px; gap: 6px; align-items: center;
+  padding: 4px 0; border-radius: 6px;
+}
+.log-grid-head { font-size: 11px; color: #aaa; text-transform: uppercase; letter-spacing: .05em; }
+.log-grid-head span:nth-child(n+3) { text-align: center; }
+.log-grid.done { background: #eaf7f1; }
+.log-setno { text-align: center; font-weight: 600; color: #666; font-size: 13px; }
+.log-prev { font-size: 12px; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.log-input {
+  width: 100%; text-align: center; font-size: 15px; padding: 6px 4px;
+  border: 0.5px solid #e0e0e0; border-radius: 6px; background: #fafafa;
+}
+.log-check { width: 22px; height: 22px; justify-self: center; accent-color: #1D9E75; cursor: pointer; }
+.log-foot { display: flex; gap: 4px; margin-top: 6px; }
+
+.hist-session { padding: 10px 4px; border-bottom: 0.5px solid #eee; }
+.hist-date { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.hist-sets { display: flex; flex-wrap: wrap; gap: 6px; }
+.hist-set { font-size: 13px; background: #f4f4f2; padding: 3px 8px; border-radius: 6px; }

@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react'
 import { DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useAuth } from '../lib/useAuth'
-import { EXERCISE_LIBRARY, DAY_COLORS } from '../lib/library'
+import { DAY_COLORS, useExerciseLibrary, searchExercises } from '../lib/library'
+import { useShowMore } from '../lib/useShowMore'
 import * as data from '../lib/data'
 import DayCard from '../components/DayCard'
 import LibraryItem from '../components/LibraryItem'
 import AddExerciseSheet from '../components/AddExerciseSheet'
+import SessionView from '../components/SessionView'
+import HistorySheet from '../components/HistorySheet'
 
 export default function Planner() {
   const { user, signOut } = useAuth()
@@ -16,6 +19,12 @@ export default function Planner() {
   const [activeName, setActiveName] = useState(null)
   const [sheetDay, setSheetDay] = useState(null)
   const [unit, setUnit] = useState('kg')
+  const [session, setSession] = useState(null) // in-progress workout, if any
+  const [historyFor, setHistoryFor] = useState(null)
+  const library = useExerciseLibrary()
+  const filtered = searchExercises(library.list, search)
+  // rendering ~900 draggables at once is sluggish, so load more as you scroll
+  const { shown, hasMore, showMore, sentinelRef } = useShowMore(filtered, 100, search)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -32,14 +41,38 @@ export default function Planner() {
     data.loadUnit(user.id)
       .then(u => setUnit(u))
       .catch(e => console.error('load unit failed', e))
+    // resume a workout left unfinished (reload, closed tab…)
+    data.loadActiveSession(user.id)
+      .then(s => setSession(s))
+      .catch(e => console.error('load active session failed', e))
   }, [user])
 
   if (loading) return <div className="center-msg">Loading…</div>
   if (!workout) return <div className="center-msg">Something went wrong.</div>
 
-  const filtered = EXERCISE_LIBRARY.filter(
-    e => !search || e.name.toLowerCase().includes(search.toLowerCase())
-  )
+  if (session) {
+    return (
+      <div className="app app-session">
+        <SessionView
+          session={session}
+          day={workout.days.find(d => d.id === session.day_id)}
+          userId={user.id}
+          unit={unit}
+          onExit={() => setSession(null)}
+        />
+      </div>
+    )
+  }
+
+  async function startWorkout(day) {
+    try {
+      setSession(await data.startSession(user.id, day))
+    } catch (e) {
+      console.error('start session failed', e)
+      window.alert(`Couldn't start the workout: ${e?.message || e}`)
+    }
+  }
+
 
   async function addExerciseToDay(dayId, name) {
     const day = workout.days.find(d => d.id === dayId)
@@ -167,7 +200,22 @@ export default function Planner() {
           <input className="search" placeholder="Search…"
             value={search} onChange={e => setSearch(e.target.value)} />
           <div className="lib-list">
-            {filtered.map(e => <LibraryItem key={e.name} name={e.name} />)}
+            {shown.map(e => <LibraryItem key={e.name} name={e.name} />)}
+            {filtered.length === 0 && (
+              <div className="lib-note">No match — type it into a day card as a custom exercise.</div>
+            )}
+            {hasMore && (
+              <button ref={sentinelRef} className="lib-more" onClick={showMore}>
+                Showing {shown.length} of {filtered.length} — load more
+              </button>
+            )}
+          </div>
+          {library.status === 'loading' && <div className="lib-note">Loading exercises…</div>}
+          {library.status === 'offline' && (
+            <div className="lib-note">Exercise database unreachable — showing a basic list.</div>
+          )}
+          <div className="lib-credit">
+            Exercises from <a href="https://wger.de" target="_blank" rel="noreferrer">wger</a> (CC-BY-SA)
           </div>
         </aside>
 
@@ -201,6 +249,8 @@ export default function Planner() {
                 onRemoveEx={removeEx}
                 onAddClick={setSheetDay}
                 onAddCustom={addExerciseToDay}
+                onStart={startWorkout}
+                onHistory={setHistoryFor}
               />
             ))}
           </div>
@@ -211,9 +261,14 @@ export default function Planner() {
         {activeName ? <div className="lib-item dragging">{activeName}</div> : null}
       </DragOverlay>
 
+      {historyFor && (
+        <HistorySheet userId={user.id} name={historyFor} onClose={() => setHistoryFor(null)} />
+      )}
+
       {sheetDay && (
         <AddExerciseSheet
           dayTitle={sheetDay.title}
+          library={library.list}
           onPick={name => addExerciseToDay(sheetDay.id, name)}
           onClose={() => setSheetDay(null)}
         />
